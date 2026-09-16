@@ -7,13 +7,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "custom_components" / "narwal_cloud" / "manifest.json"
-ARCHIVE = ROOT / "dist" / "narwal-cloud-eu-0.9.3-eu.6.zip"
+ARCHIVE = ROOT / "dist" / "narwal-cloud-eu-0.9.3-eu.7.zip"
 
 
 def test_manifest_identifies_eu_build() -> None:
     data = json.loads(MANIFEST.read_text(encoding="utf-8"))
     assert data["name"] == "Narwal Cloud EU (unofficial)"
-    assert data["version"] == "0.9.3-eu.6"
+    assert data["version"] == "0.9.3-eu.7"
     assert data["domain"] == "narwal_cloud"
 
 

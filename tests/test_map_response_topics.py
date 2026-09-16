@@ -84,6 +84,45 @@ def test_nested_saved_map_response_uses_field_one_as_map_id() -> None:
     assert map_data.compressed_grid == compressed_grid
 
 
+def test_map_activation_matches_verified_local_wake_sequence() -> None:
+    async def run() -> None:
+        captured = None
+
+        async def sequence(*_args, **_kwargs):
+            nonlocal captured
+            captured = _args[5]
+            return tuple(b"" for _ in captured)
+
+        original_sequence = MQTT._async_request_sequence
+        MQTT._async_request_sequence = sequence
+        try:
+            await MQTT.async_request(
+                "mqtts://eu.example.invalid:8883",
+                "access",
+                "client",
+                "product",
+                "device",
+                "map/get_map",
+                b"request",
+                activate_robot=True,
+            )
+        finally:
+            MQTT._async_request_sequence = original_sequence
+
+        assert [item[0] for item in captured] == [
+            "common/notify_app_event",
+            "common/active_robot_publish",
+            "common/active_robot_publish",
+            "status/app_status_heartbeat",
+            "status/get_device_base_status",
+            "map/get_map",
+        ]
+        assert captured[2][1] == MQTT._protobuf_varint(1, 600)
+        assert captured[3][1] == MQTT._protobuf_varint(1, 1)
+
+    asyncio.run(run())
+
+
 def test_map_parse_failure_records_only_safe_metadata() -> None:
     async def run() -> None:
         client = API.NarwalCloudClient(object(), "access", "refresh", "client")
@@ -125,5 +164,6 @@ if __name__ == "__main__":
     test_map_display_topic_is_not_a_full_map_response()
     test_map_request_waits_for_get_map_response()
     test_nested_saved_map_response_uses_field_one_as_map_id()
+    test_map_activation_matches_verified_local_wake_sequence()
     test_map_parse_failure_records_only_safe_metadata()
     print("map response topic tests passed")

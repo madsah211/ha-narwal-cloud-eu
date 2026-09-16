@@ -1,5 +1,17 @@
 # 변경 기록 / Changelog
 
+## 0.9.3-eu.7
+
+### English
+
+- Publishes a successfully decoded saved map immediately, before requesting
+  optional cleaning-plan metadata.
+- A cleaning-plan timeout can no longer discard the map, rooms, renderer data,
+  or robot pose that were already received.
+- Uses the locally verified app-open wake sequence before sleeping-robot queries:
+  app event, broadcast activation, timed activation, app heartbeat, and base
+  status before requesting the saved map.
+
 ## 0.9.3-eu.6
 
 ### English

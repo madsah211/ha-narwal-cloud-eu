@@ -147,6 +147,17 @@ def _active_robot_body() -> bytes:
     )
 
 
+def _wake_requests() -> tuple[tuple[str, bytes, bool], ...]:
+    """Return the verified app-open wake sequence used before robot queries."""
+    return (
+        ("common/notify_app_event", _protobuf_varint(1, 1), True),
+        ("common/active_robot_publish", _active_robot_body(), True),
+        ("common/active_robot_publish", _protobuf_varint(1, 600), False),
+        ("status/app_status_heartbeat", _protobuf_varint(1, 1), False),
+        ("status/get_device_base_status", b"", True),
+    )
+
+
 async def _read_varint(reader: asyncio.StreamReader) -> int:
     value = 0
     multiplier = 1
@@ -518,16 +529,8 @@ async def async_request(
             client_uuid,
             product_id,
             device_id,
-            (
-                (
-                    "common/active_robot_publish",
-                    _active_robot_body(),
-                    True,
-                ),
-                ("common/notify_app_event", b"\x08\x01", True),
-                ("status/get_device_base_status", b"", True),
-                (topic_suffix, command_body, response_required),
-            ),
+            _wake_requests()
+            + ((topic_suffix, command_body, response_required),),
             alternate_response_topic_suffix=alternate_response_topic_suffix,
             response_metadata=response_metadata,
         )
@@ -560,11 +563,7 @@ async def async_request_base_status(
         client_uuid,
         product_id,
         device_id,
-        (
-            ("common/active_robot_publish", _active_robot_body(), True),
-            ("common/notify_app_event", b"\x08\x01", True),
-            ("status/get_device_base_status", b"", True),
-        ),
+        _wake_requests(),
         capture_topic_suffix="status/robot_base_status",
     )
     return responses[-1]

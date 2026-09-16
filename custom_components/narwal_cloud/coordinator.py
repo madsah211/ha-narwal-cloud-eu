@@ -7,8 +7,8 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any
 
-from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import NarwalCloudAuthError, NarwalCloudClient, NarwalCloudError
@@ -66,18 +66,17 @@ class NarwalCloudCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if (
                 last_map_activity is None
                 or now - last_map_activity >= MAP_REFRESH_INTERVAL
+            ) and (
+                self._map_refresh_task is None
+                or self._map_refresh_task.done()
             ):
-                if (
-                    self._map_refresh_task is None
-                    or self._map_refresh_task.done()
-                ):
-                    # Map data is optional and its sleeping-robot handshake can
-                    # take several seconds. Never hold up HA startup or the
-                    # primary vacuum state while it refreshes.
-                    self._map_refresh_task = asyncio.create_task(
-                        self._async_refresh_map_metadata(),
-                        name=f"{DOMAIN}-map-refresh",
-                    )
+                # Map data is optional and its sleeping-robot handshake can
+                # take several seconds. Never hold up HA startup or the
+                # primary vacuum state while it refreshes.
+                self._map_refresh_task = asyncio.create_task(
+                    self._async_refresh_map_metadata(),
+                    name=f"{DOMAIN}-map-refresh",
+                )
         except NarwalCloudAuthError as err:
             raise ConfigEntryAuthFailed from err
         except NarwalCloudError as err:
@@ -124,19 +123,35 @@ class NarwalCloudCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Refresh live map data without blocking core device polling."""
         self._map_attempted_at = datetime.now().astimezone()
         try:
-            # These requests use the same MQTT client id, so they must remain
-            # sequential or the broker disconnects the first session.
             map_data = await self.client.async_get_map(
                 self.device_id, self.product_id
             )
+        except NarwalCloudError:
+            _LOGGER.debug("Narwal map is temporarily unavailable", exc_info=True)
+            return
+
+        # Publish a valid saved map immediately. Cleaning-plan metadata is a
+        # separate optional request and must never discard a map already read.
+        self.map_data = map_data
+        self._map_updated_at = datetime.now().astimezone()
+        if self.data is not None:
+            self.async_set_updated_data(
+                {
+                    **self.data,
+                    "map": self.map_data,
+                    "clean_plans": self.clean_plans,
+                }
+            )
+
+        try:
+            # These requests use the same MQTT client id, so they must remain
+            # sequential or the broker disconnects the first session.
             clean_plans = self.clean_plans
             if refresh_plans or not clean_plans:
                 clean_plans = await self.client.async_get_clean_plans(
                     self.device_id, self.product_id
                 )
-            self.map_data = map_data
             self.clean_plans = clean_plans
-            self._map_updated_at = datetime.now().astimezone()
             if self.data is not None:
                 self.async_set_updated_data(
                     {
@@ -146,9 +161,10 @@ class NarwalCloudCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     }
                 )
         except NarwalCloudError:
-            # Status polling remains useful when the robot or broker
-            # temporarily declines optional map metadata.
-            _LOGGER.debug("Narwal map is temporarily unavailable", exc_info=True)
+            _LOGGER.debug(
+                "Narwal cleaning plans are temporarily unavailable",
+                exc_info=True,
+            )
 
     @property
     def map_updated_at(self) -> datetime | None:
