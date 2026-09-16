@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.serialization import load_der_public_key
 
-
 # Production public key bundled with Narwal Freo 2.7.03. This encrypts the
 # password in transit before the already encrypted HTTPS request is sent. It
 # is a public key and contains no account-specific material.
@@ -25,7 +24,7 @@ def encrypt_account_password(password: str) -> str:
     """Encrypt a Narwal password using the official app public key."""
     public_key = load_der_public_key(base64.b64decode(NARWAL_LOGIN_PUBLIC_KEY))
     if not isinstance(public_key, rsa.RSAPublicKey):
-        raise ValueError("Narwal login key is not an RSA public key")
+        raise TypeError("Narwal login key is not an RSA public key")
     encrypted = public_key.encrypt(password.encode("utf-8"), padding.PKCS1v15())
     return base64.b64encode(encrypted).decode("ascii")
 

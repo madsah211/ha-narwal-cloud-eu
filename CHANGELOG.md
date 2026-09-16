@@ -1,5 +1,17 @@
 # 변경 기록 / Changelog
 
+## 0.9.3-eu.9
+
+### English
+
+- Stores the last valid saved map in Home Assistant's private local storage so
+  rooms and the rendered base map survive restarts while older Freo firmware is
+  asleep.
+- Captures `map/display_map` alongside the existing MQTT base-status request
+  while cleaning, without logging or exposing the raw payload.
+- Merges live robot pose, frame timestamp, and Narwal's native trajectory into
+  the cached saved map and renders the route on the normal map camera.
+
 ## 0.9.3-eu.8
 
 ### English

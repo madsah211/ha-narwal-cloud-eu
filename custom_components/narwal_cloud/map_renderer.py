@@ -98,6 +98,10 @@ def render_map(map_data: NarwalMap) -> bytes:
             # non-Latin room name; the room remains selectable in HA.
             pass
 
+    trajectory = _trajectory_pixels(map_data)
+    if len(trajectory) >= 2:
+        draw.line(trajectory, fill=(42, 126, 255), width=4, joint="curve")
+
     marker = _pose_pixel(map_data)
     if marker is not None:
         raw_x, raw_y = marker
@@ -306,6 +310,17 @@ def _pose_pixel(map_data: NarwalMap) -> tuple[float, float] | None:
     if not (0 <= raw_x < map_data.width and 0 <= raw_y < map_data.height):
         return None
     return raw_x, raw_y
+
+
+def _trajectory_pixels(map_data: NarwalMap) -> list[tuple[float, float]]:
+    """Convert Narwal-native route points to this renderer's image pixels."""
+    points: list[tuple[float, float]] = []
+    for x, y in map_data.trajectory:
+        raw_x = x - map_data.origin_x
+        raw_y = y - map_data.origin_y
+        if 0 <= raw_x < map_data.width and 0 <= raw_y < map_data.height:
+            points.append((raw_y * 3, raw_x * 3))
+    return points
 
 
 def _relative_pose_pixel(

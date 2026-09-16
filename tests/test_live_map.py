@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import struct
 import sys
 import zlib
 from pathlib import Path
 
-from test_auth import API  # noqa: F401 - loads integration modules
+from test_auth import API
 
 MQTT = sys.modules["narwal_cloud.mqtt"]
 PROTOCOL = sys.modules["narwal_cloud.protocol"]
@@ -108,8 +109,96 @@ def test_renderer_places_robot_by_subtracting_saved_map_origin() -> None:
     assert RENDERER._pose_pixel(map_data) == (9.0, 11.0)
 
 
+def test_display_map_updates_pose_timestamp_and_native_trajectory() -> None:
+    trajectory = (
+        MQTT._protobuf_message(1, struct.pack("<ff", 101.0, 102.0))
+        + MQTT._protobuf_message(2, struct.pack("<ff", 201.0, 202.0))
+    )
+    payload = (
+        MQTT._protobuf_message(1, _pose(109.0, 211.0, 1.0))
+        + MQTT._protobuf_message(2, trajectory)
+        + MQTT._protobuf_varint(10, 1_700_000_000_000)
+    )
+    base = PROTOCOL.NarwalMap(
+        revision=42,
+        width=20,
+        height=30,
+        origin_x=100,
+        origin_y=200,
+        compressed_grid=b"grid",
+    )
+
+    display = PROTOCOL.parse_display_map(payload)
+    merged = PROTOCOL.merge_display_map(base, display)
+
+    assert merged.robot_pose == PROTOCOL.NarwalPose(109.0, 211.0, 1.0)
+    assert merged.robot_pose_update_time == 1_700_000_000_000
+    assert merged.trajectory == ((101.0, 201.0), (102.0, 202.0))
+    assert merged.compressed_grid == b"grid"
+    assert RENDERER._pose_pixel(merged) == (9.0, 11.0)
+    assert RENDERER._trajectory_pixels(merged) == [(3.0, 3.0), (6.0, 6.0)]
+
+
+def test_saved_map_cache_round_trip_preserves_private_map_only_locally() -> None:
+    original = PROTOCOL.NarwalMap(
+        revision=42,
+        resolution=50,
+        width=2,
+        height=3,
+        rooms=(PROTOCOL.NarwalRoom(4, "Kitchen", 4, 1),),
+        compressed_grid=b"compressed-grid",
+        border=(1, 2, 3, 4),
+        origin_x=3,
+        origin_y=1,
+        station=PROTOCOL.NarwalPose(5.0, 6.0, 0.5),
+        robot_pose=PROTOCOL.NarwalPose(7.0, 8.0, 1.0),
+        robot_pose_update_time=123456,
+    )
+
+    restored = PROTOCOL.map_from_cache(PROTOCOL.map_to_cache(original))
+
+    assert restored == original
+
+
+def test_base_status_request_also_keeps_latest_display_map() -> None:
+    async def run() -> None:
+        client = API.NarwalCloudClient(object(), "access", "refresh", "client")
+        base_payload = _fixed32(2, 80.0)
+        display_payload = (
+            MQTT._protobuf_message(1, _pose(109.0, 211.0, 1.0))
+            + MQTT._protobuf_varint(10, 1_700_000_000_000)
+        )
+
+        async def broker_url() -> str:
+            return "mqtts://eu.example.invalid:8883"
+
+        async def request(*_args, **_kwargs):
+            return base_payload, display_payload
+
+        original = API.async_request_base_status
+        client.async_get_broker_url = broker_url
+        API.async_request_base_status = request
+        try:
+            status = await client.async_get_base_status(
+                "device", "product", capture_display=True
+            )
+        finally:
+            API.async_request_base_status = original
+
+        assert status == {"battery_percentage": 80}
+        assert client.last_display_map is not None
+        assert client.last_display_map.robot_pose == PROTOCOL.NarwalPose(
+            109.0, 211.0, 1.0
+        )
+
+    asyncio.run(run())
+
+
 if __name__ == "__main__":
     test_wake_subscription_names_every_broadcast_topic_for_ten_minutes()
     test_saved_map_exposes_origin_offsets_for_live_overlay_coordinates()
     test_renderer_places_robot_by_subtracting_saved_map_origin()
+    test_display_map_updates_pose_timestamp_and_native_trajectory()
+    test_saved_map_cache_round_trip_preserves_private_map_only_locally()
+    test_base_status_request_also_keeps_latest_display_map()
     print("live map foundation tests passed")

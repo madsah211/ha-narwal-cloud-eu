@@ -88,6 +88,7 @@ class NarwalMapCamera(CoordinatorEntity[NarwalCloudCoordinator], Camera):
             pose.x if pose else None,
             pose.y if pose else None,
             pose.angle if pose else None,
+            map_data.trajectory,
         )
         if cache_key != self._cached_key or self._cached_image is None:
             renderer = render_map_data if self._map_data_json else render_map

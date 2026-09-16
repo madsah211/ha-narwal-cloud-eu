@@ -9,13 +9,21 @@ from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import NarwalCloudAuthError, NarwalCloudClient, NarwalCloudError
 from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
-from .protocol import NarwalCleanPlan, NarwalMap
+from .protocol import (
+    NarwalCleanPlan,
+    NarwalMap,
+    map_from_cache,
+    map_to_cache,
+    merge_display_map,
+)
 
 MAP_REFRESH_INTERVAL = timedelta(minutes=5)
+MAP_CACHE_VERSION = 1
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -40,6 +48,11 @@ class NarwalCloudCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.device_id = device_id
         self.product_id = product_id
         self.map_data = NarwalMap()
+        self._map_store = Store(
+            hass,
+            MAP_CACHE_VERSION,
+            f"{DOMAIN}.{device_id}.map",
+        )
         self.clean_plans: tuple[NarwalCleanPlan, ...] = ()
         self._map_updated_at: datetime | None = None
         self._map_attempted_at: datetime | None = None
@@ -48,6 +61,21 @@ class NarwalCloudCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.suction_power = 2
         self.mop_humidity = 2
         self.cleaning_cycles = 1
+
+    async def async_restore_cached_map(self) -> None:
+        """Restore the last valid map before contacting a sleeping robot."""
+        cached = await self._map_store.async_load()
+        if cached is None:
+            return
+        try:
+            map_data = map_from_cache(cached)
+        except (KeyError, TypeError, ValueError):
+            _LOGGER.warning("Ignoring an invalid cached Narwal map")
+            return
+        if not map_data.compressed_grid or map_data.width <= 0 or map_data.height <= 0:
+            return
+        self.map_data = map_data
+        self._map_updated_at = datetime.now().astimezone()
 
     async def _async_update_data(self) -> dict[str, Any]:
         try:
@@ -58,7 +86,12 @@ class NarwalCloudCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # Narwal intermittently returns malformed consumable data when
             # broker discovery and consumable REST calls overlap. Keep these
             # optional reads sequential so one feature cannot block setup.
-            base_status = await self._async_get_base_status()
+            capture_display = not bool(status.get("free")) and not bool(
+                status.get("in_station")
+            )
+            base_status = await self._async_get_base_status(
+                capture_display=capture_display
+            )
             consumables = await self._async_get_consumables()
             status = {**status, **base_status}
             now = datetime.now().astimezone()
@@ -89,12 +122,29 @@ class NarwalCloudCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "consumables": consumables,
         }
 
-    async def _async_get_base_status(self) -> dict[str, int]:
+    async def _async_get_base_status(
+        self, *, capture_display: bool = False
+    ) -> dict[str, int]:
         """Read optional live battery data without failing core polling."""
         try:
-            return await self.client.async_get_base_status(
-                self.device_id, self.product_id
+            status = await self.client.async_get_base_status(
+                self.device_id,
+                self.product_id,
+                capture_display=capture_display,
             )
+            display = self.client.last_display_map if capture_display else None
+            if display is not None and self.map_data.compressed_grid:
+                self.map_data = merge_display_map(self.map_data, display)
+                self._map_updated_at = datetime.now().astimezone()
+                if self.data is not None:
+                    self.async_set_updated_data(
+                        {
+                            **self.data,
+                            "map": self.map_data,
+                            "clean_plans": self.clean_plans,
+                        }
+                    )
+            return status
         except NarwalCloudError:
             _LOGGER.warning(
                 "Unable to refresh Narwal battery status",
@@ -142,6 +192,7 @@ class NarwalCloudCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "clean_plans": self.clean_plans,
                 }
             )
+        await self._map_store.async_save(map_to_cache(map_data))
 
         try:
             # These requests use the same MQTT client id, so they must remain

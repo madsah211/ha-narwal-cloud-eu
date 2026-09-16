@@ -263,6 +263,8 @@ async def _async_request_sequence(
     device_id: str,
     requests: tuple[tuple[str, bytes, bool], ...],
     capture_topic_suffix: str | None = None,
+    capture_extra_topic_suffix: str | None = None,
+    capture_extra_payload: dict[str, bytes] | None = None,
     alternate_response_topic_suffix: str | None = None,
     response_metadata: dict[str, Any] | None = None,
 ) -> tuple[bytes, ...]:
@@ -471,6 +473,11 @@ async def _async_request_sequence(
             capture_topic = (
                 f"/{product_id}/{device_id}/{capture_topic_suffix}"
             )
+            extra_topic = (
+                f"/{product_id}/{device_id}/{capture_extra_topic_suffix}"
+                if capture_extra_topic_suffix
+                else None
+            )
             stage = f"{capture_topic_suffix} broadcast"
             while True:
                 packet_type = (
@@ -482,12 +489,49 @@ async def _async_request_sequence(
                 packet = await asyncio.wait_for(
                     reader.readexactly(remaining), timeout=15
                 )
+                actual_topic = (
+                    _mqtt_publish_topic(packet) if packet_type == 3 else ""
+                )
+                if (
+                    extra_topic is not None
+                    and actual_topic == extra_topic
+                    and capture_extra_payload is not None
+                ):
+                    capture_extra_payload["payload"] = _mqtt_publish_payload(packet)
                 if (
                     packet_type == 3
-                    and _mqtt_publish_topic(packet) == capture_topic
+                    and actual_topic == capture_topic
                 ):
                     responses.append(_mqtt_publish_payload(packet))
                     break
+
+            if extra_topic is not None and capture_extra_payload is not None:
+                deadline = asyncio.get_running_loop().time() + 2
+                while "payload" not in capture_extra_payload:
+                    time_left = deadline - asyncio.get_running_loop().time()
+                    if time_left <= 0:
+                        break
+                    try:
+                        packet_type = (
+                            await asyncio.wait_for(
+                                reader.readexactly(1), timeout=time_left
+                            )
+                        )[0] >> 4
+                        remaining = await asyncio.wait_for(
+                            _read_varint(reader), timeout=time_left
+                        )
+                        packet = await asyncio.wait_for(
+                            reader.readexactly(remaining), timeout=time_left
+                        )
+                    except TimeoutError:
+                        break
+                    if (
+                        packet_type == 3
+                        and _mqtt_publish_topic(packet) == extra_topic
+                    ):
+                        capture_extra_payload["payload"] = _mqtt_publish_payload(
+                            packet
+                        )
 
         return tuple(responses)
     except (OSError, TimeoutError, asyncio.IncompleteReadError) as err:
@@ -556,8 +600,11 @@ async def async_request_base_status(
     client_uuid: str,
     product_id: str,
     device_id: str,
-) -> bytes:
-    """Request and capture the robot's asynchronous base-status broadcast."""
+    *,
+    capture_display: bool = False,
+) -> tuple[bytes, bytes | None]:
+    """Capture base status and, while cleaning, the latest display map."""
+    captured: dict[str, bytes] = {}
     responses = await _async_request_sequence(
         broker_url,
         access_token,
@@ -566,8 +613,10 @@ async def async_request_base_status(
         device_id,
         _wake_requests(),
         capture_topic_suffix="status/robot_base_status",
+        capture_extra_topic_suffix="map/display_map" if capture_display else None,
+        capture_extra_payload=captured,
     )
-    return responses[-1]
+    return responses[-1], captured.get("payload")
 
 
 async def async_publish_task_command(

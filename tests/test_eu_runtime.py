@@ -93,8 +93,10 @@ def test_device_lookup_uses_eu_endpoint() -> None:
         args, kwargs = session.request_calls[0]
         assert args == (
             "GET",
-            "https://eu-app.narwaltech.com/"
-            "user-device-platform-server/device-info/getDeviceInfoList",
+            (
+                "https://eu-app.narwaltech.com/"
+                "user-device-platform-server/device-info/getDeviceInfoList"
+            ),
         )
         assert kwargs["headers"]["country_code"] == "DK"
         assert devices == [{"deviceId": "robot", "productId": "product"}]
@@ -115,8 +117,10 @@ def test_broker_discovery_uses_denmark() -> None:
         args, kwargs = session.request_calls[0]
         assert args == (
             "GET",
-            "https://eu-app.narwaltech.com/"
-            "iot-broker-discover/app/v1/broker/discover",
+            (
+                "https://eu-app.narwaltech.com/"
+                "iot-broker-discover/app/v1/broker/discover"
+            ),
         )
         assert kwargs["params"] == {"country": "DK"}
         assert kwargs["headers"]["country_code"] == "DK"

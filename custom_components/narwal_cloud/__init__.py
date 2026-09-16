@@ -22,7 +22,6 @@ from .const import (
     CONF_REFRESH_TOKEN,
     CONF_SCAN_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
-    DOMAIN,
 )
 from .coordinator import NarwalCloudCoordinator
 
@@ -66,6 +65,7 @@ async def async_setup_entry(
             )
         ),
     )
+    await coordinator.async_restore_cached_map()
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(

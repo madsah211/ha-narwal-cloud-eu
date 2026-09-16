@@ -25,9 +25,11 @@ from .mqtt import (
 )
 from .protocol import (
     NarwalCleanPlan,
+    NarwalDisplayMap,
     NarwalMap,
     parse_base_status_response,
     parse_clean_plans_response,
+    parse_display_map,
     parse_map_response,
 )
 from .region import (
@@ -69,6 +71,7 @@ class NarwalCloudClient:
         self._email = email
         self._password = password
         self.last_map_diagnostic: dict[str, Any] = {"status": "not_attempted"}
+        self.last_display_map: NarwalDisplayMap | None = None
 
     @property
     def access_token(self) -> str:
@@ -261,19 +264,31 @@ class NarwalCloudClient:
         return result
 
     async def async_get_base_status(
-        self, device_id: str, product_id: str
+        self,
+        device_id: str,
+        product_id: str,
+        *,
+        capture_display: bool = False,
     ) -> dict[str, int]:
         """Return live battery data from the robot MQTT broadcast."""
         broker_url = await self.async_get_broker_url()
+        if capture_display:
+            self.last_display_map = None
         try:
             async with asyncio.timeout(20):
-                payload = await async_request_base_status(
+                payload, display_payload = await async_request_base_status(
                     broker_url,
                     self.access_token,
                     self.client_uuid,
                     product_id,
                     device_id,
+                    capture_display=capture_display,
                 )
+            if display_payload is not None:
+                try:
+                    self.last_display_map = parse_display_map(display_payload)
+                except ValueError:
+                    self.last_display_map = None
             return parse_base_status_response(payload)
         except (NarwalMqttError, TimeoutError, ValueError) as err:
             raise NarwalCloudError(

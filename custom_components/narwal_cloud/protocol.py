@@ -7,8 +7,10 @@ traffic captured from the official app.
 
 from __future__ import annotations
 
+import base64
+import math
 import struct
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 
 @dataclass(frozen=True)
@@ -56,6 +58,16 @@ class NarwalMap:
     station: NarwalPose | None = None
     robot_pose: NarwalPose | None = None
     robot_pose_update_time: int = 0
+    trajectory: tuple[tuple[float, float], ...] = ()
+
+
+@dataclass(frozen=True)
+class NarwalDisplayMap:
+    """Live pose and trajectory broadcast separately from the saved map."""
+
+    robot_pose: NarwalPose
+    timestamp: int = 0
+    trajectory: tuple[tuple[float, float], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -265,6 +277,126 @@ def parse_map_display(payload: bytes) -> NarwalMap:
     ):
         raise ValueError("Unsupported display-map protobuf shape")
     return map_data
+
+
+def _packed_float32(payload: bytes) -> list[float]:
+    """Decode complete finite float32 values from one packed protobuf field."""
+    usable = len(payload) - (len(payload) % 4)
+    return [
+        value[0]
+        for value in struct.iter_unpack("<f", payload[:usable])
+        if math.isfinite(value[0])
+    ]
+
+
+def parse_display_map(payload: bytes) -> NarwalDisplayMap:
+    """Parse the unframed live ``map/display_map`` broadcast."""
+    fields = decode_fields(payload)
+    robot_pose = _pose(fields, 1)
+    if robot_pose is None:
+        raise ValueError("Narwal display map did not contain a robot pose")
+
+    trajectory: list[tuple[float, float]] = []
+    for raw_window in _messages(fields, 2):
+        window = decode_fields(raw_window)
+        xs = _packed_float32(_message(window, 1))
+        ys = _packed_float32(_message(window, 2))
+        trajectory.extend(zip(xs, ys, strict=False))
+    return NarwalDisplayMap(
+        robot_pose=robot_pose,
+        timestamp=_integer(fields, 10),
+        trajectory=tuple(trajectory),
+    )
+
+
+def merge_display_map(base: NarwalMap, display: NarwalDisplayMap) -> NarwalMap:
+    """Overlay live robot data without replacing the saved room grid."""
+    return replace(
+        base,
+        robot_pose=display.robot_pose,
+        robot_pose_update_time=display.timestamp,
+        trajectory=display.trajectory,
+    )
+
+
+def _pose_to_cache(pose: NarwalPose | None) -> dict[str, float] | None:
+    return (
+        {"x": pose.x, "y": pose.y, "angle": pose.angle}
+        if pose is not None
+        else None
+    )
+
+
+def _pose_from_cache(value: object) -> NarwalPose | None:
+    if not isinstance(value, dict):
+        return None
+    return NarwalPose(
+        x=float(value.get("x", 0.0)),
+        y=float(value.get("y", 0.0)),
+        angle=float(value.get("angle", 0.0)),
+    )
+
+
+def map_to_cache(map_data: NarwalMap) -> dict:
+    """Serialize a saved map for Home Assistant's local private storage."""
+    return {
+        "revision": map_data.revision,
+        "resolution": map_data.resolution,
+        "width": map_data.width,
+        "height": map_data.height,
+        "rooms": [
+            {
+                "room_id": room.room_id,
+                "name": room.name,
+                "room_type": room.room_type,
+                "instance_index": room.instance_index,
+            }
+            for room in map_data.rooms
+        ],
+        "compressed_grid": base64.b64encode(map_data.compressed_grid).decode("ascii"),
+        "border": list(map_data.border),
+        "origin_x": map_data.origin_x,
+        "origin_y": map_data.origin_y,
+        "origin": _pose_to_cache(map_data.origin),
+        "station": _pose_to_cache(map_data.station),
+        "robot_pose": _pose_to_cache(map_data.robot_pose),
+        "robot_pose_update_time": map_data.robot_pose_update_time,
+    }
+
+
+def map_from_cache(value: object) -> NarwalMap:
+    """Restore a saved map from Home Assistant's local private storage."""
+    if not isinstance(value, dict):
+        raise TypeError("Invalid cached Narwal map")
+    rooms_value = value.get("rooms", [])
+    rooms = tuple(
+        NarwalRoom(
+            room_id=int(room["room_id"]),
+            name=str(room["name"]),
+            room_type=int(room.get("room_type", 0)),
+            instance_index=int(room.get("instance_index", 0)),
+        )
+        for room in rooms_value
+        if isinstance(room, dict) and "room_id" in room and "name" in room
+    )
+    border_value = value.get("border", [0, 0, 0, 0])
+    if not isinstance(border_value, list) or len(border_value) != 4:
+        raise ValueError("Invalid cached Narwal map border")
+    return NarwalMap(
+        revision=int(value.get("revision", 0)),
+        resolution=int(value.get("resolution", 0)),
+        width=int(value.get("width", 0)),
+        height=int(value.get("height", 0)),
+        rooms=rooms,
+        compressed_grid=base64.b64decode(str(value.get("compressed_grid", ""))),
+        border=tuple(int(item) for item in border_value),
+        origin_x=int(value.get("origin_x", 0)),
+        origin_y=int(value.get("origin_y", 0)),
+        origin=_pose_from_cache(value.get("origin")),
+        station=_pose_from_cache(value.get("station")),
+        robot_pose=_pose_from_cache(value.get("robot_pose")),
+        robot_pose_update_time=int(value.get("robot_pose_update_time", 0)),
+    )
 
 
 def _parse_map_fields(map_fields: list[ProtoField]) -> NarwalMap:
