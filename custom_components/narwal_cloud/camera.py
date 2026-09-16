@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import time
 import zlib
+from datetime import datetime, timezone
 
 from homeassistant.components.camera import Camera
 from homeassistant.config_entries import ConfigEntry
@@ -112,4 +112,8 @@ class NarwalMapCamera(CoordinatorEntity[NarwalCloudCoordinator], Camera):
         """Return map-card attributes on the rendered camera."""
         if self._map_data_json:
             return None
-        return map_attributes(self.coordinator.map_data)
+        attributes = map_attributes(self.coordinator.map_data)
+        attributes["map_diagnostic"] = dict(
+            self.coordinator.client.last_map_diagnostic
+        )
+        return attributes

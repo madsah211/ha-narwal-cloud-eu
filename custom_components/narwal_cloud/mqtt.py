@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import ssl
 import uuid
+from typing import Any
 from urllib.parse import urlparse
 
 
@@ -220,6 +221,7 @@ async def _async_request_once(
     *,
     response_required: bool = True,
     alternate_response_topic_suffix: str | None = None,
+    response_metadata: dict[str, Any] | None = None,
 ) -> bytes:
     """Publish one request and return its matching response payload."""
     responses = await _async_request_sequence(
@@ -230,6 +232,7 @@ async def _async_request_once(
         device_id,
         ((topic_suffix, command_body, response_required),),
         alternate_response_topic_suffix=alternate_response_topic_suffix,
+        response_metadata=response_metadata,
     )
     return responses[0]
 
@@ -243,6 +246,7 @@ async def _async_request_sequence(
     requests: tuple[tuple[str, bytes, bool], ...],
     capture_topic_suffix: str | None = None,
     alternate_response_topic_suffix: str | None = None,
+    response_metadata: dict[str, Any] | None = None,
 ) -> tuple[bytes, ...]:
     """Publish requests in order over one MQTT session."""
     parsed = urlparse(broker_url)
@@ -416,16 +420,40 @@ async def _async_request_sequence(
                 response_packet = await asyncio.wait_for(
                     reader.readexactly(remaining), timeout=15
                 )
-                if (
-                    packet_type == 3
-                    and _is_expected_response_topic(
-                        _mqtt_publish_topic(response_packet),
+                actual_topic = (
+                    _mqtt_publish_topic(response_packet)
+                    if packet_type == 3
+                    else ""
+                )
+                if response_metadata is not None and actual_topic:
+                    prefix = f"/{product_id}/{device_id}/"
+                    observed_topic = (
+                        actual_topic[len(prefix):]
+                        if actual_topic.startswith(prefix)
+                        else "other"
+                    )
+                    observed = response_metadata.setdefault("observed_topics", [])
+                    if observed_topic not in observed and len(observed) < 10:
+                        observed.append(observed_topic)
+                if packet_type == 3 and _is_expected_response_topic(
+                        actual_topic,
                         response_topic,
                         alternate_response_topic,
-                    )
-                ):
+                    ):
                     break
-            responses.append(_mqtt_publish_payload(response_packet))
+            response_payload = _mqtt_publish_payload(response_packet)
+            if response_metadata is not None:
+                response_metadata.update(
+                    {
+                        "response_topic": (
+                            alternate_response_topic_suffix
+                            if actual_topic == alternate_response_topic
+                            else f"{topic_suffix}/response"
+                        ),
+                        "payload_length": len(response_payload),
+                    }
+                )
+            responses.append(response_payload)
 
         if capture_topic_suffix:
             capture_topic = (
@@ -480,6 +508,7 @@ async def async_request(
     activate_robot: bool = False,
     response_required: bool = True,
     alternate_response_topic_suffix: str | None = None,
+    response_metadata: dict[str, Any] | None = None,
 ) -> bytes:
     """Send a request, optionally activating app-style robot publishing first."""
     if activate_robot:
@@ -500,6 +529,7 @@ async def async_request(
                 (topic_suffix, command_body, response_required),
             ),
             alternate_response_topic_suffix=alternate_response_topic_suffix,
+            response_metadata=response_metadata,
         )
         return responses[-1]
     return await _async_request_once(
@@ -512,6 +542,7 @@ async def async_request(
         command_body,
         response_required=response_required,
         alternate_response_topic_suffix=alternate_response_topic_suffix,
+        response_metadata=response_metadata,
     )
 
 

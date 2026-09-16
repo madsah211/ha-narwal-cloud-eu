@@ -1,5 +1,14 @@
 # 변경 기록 / Changelog
 
+## 0.9.3-eu.3
+
+### English
+
+- Adds privacy-safe map diagnostics to the rendered map camera attributes:
+  response topic type, payload byte length, observed standard topic suffixes,
+  and sanitized request or parser errors. Raw map data, account identifiers,
+  broker addresses, tokens, and device identifiers are never exposed.
+
 ## 0.9.3-eu.2
 
 ### English

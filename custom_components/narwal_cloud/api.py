@@ -68,6 +68,7 @@ class NarwalCloudClient:
         self._on_token_update = on_token_update
         self._email = email
         self._password = password
+        self.last_map_diagnostic: dict[str, Any] = {"status": "not_attempted"}
 
     @property
     def access_token(self) -> str:
@@ -352,6 +353,8 @@ class NarwalCloudClient:
     ) -> NarwalMap:
         """Return the robot's current saved map and room metadata."""
         broker_url = await self.async_get_broker_url()
+        diagnostic: dict[str, Any] = {"status": "requesting"}
+        self.last_map_diagnostic = diagnostic
         try:
             # An already-online robot answers the focused request reliably and
             # avoids activation broadcasts racing the map response.
@@ -365,6 +368,7 @@ class NarwalCloudClient:
                     "map/get_map",
                     b"\x08\x00\x10\x00",
                     alternate_response_topic_suffix="map/display_map",
+                    response_metadata=diagnostic,
                 )
         except (NarwalMqttError, TimeoutError, ValueError):
             try:
@@ -381,12 +385,32 @@ class NarwalCloudClient:
                         b"\x08\x00\x10\x00",
                         activate_robot=True,
                         alternate_response_topic_suffix="map/display_map",
+                        response_metadata=diagnostic,
                     )
             except (NarwalMqttError, TimeoutError, ValueError) as retry_err:
+                diagnostic.update(
+                    {
+                        "status": "error",
+                        "error_type": type(retry_err).__name__,
+                        "error": str(retry_err)[:160] or "Request timed out",
+                    }
+                )
                 raise NarwalCloudError(
                     "Unable to read the Narwal map"
                 ) from retry_err
-        return parse_map_response(payload)
+        try:
+            map_data = parse_map_response(payload)
+        except ValueError as err:
+            diagnostic.update(
+                {
+                    "status": "error",
+                    "error_type": type(err).__name__,
+                    "error": str(err)[:160],
+                }
+            )
+            raise NarwalCloudError("Unable to parse the Narwal map") from err
+        diagnostic["status"] = "ok"
+        return map_data
 
     async def async_get_clean_plans(
         self, device_id: str, product_id: str
