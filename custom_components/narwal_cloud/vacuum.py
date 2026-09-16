@@ -195,6 +195,9 @@ class NarwalCloudVacuum(CoordinatorEntity[NarwalCloudCoordinator], StateVacuumEn
                 room_ids.append(room_id)
         if not room_ids:
             raise ValueError("No valid Narwal rooms were selected")
+        room_templates = await self.coordinator.async_require_room_templates(
+            self.coordinator.cleaning_mode, room_ids
+        )
         await self.coordinator.client.async_send_task_command(
             self.coordinator.device_id,
             self.coordinator.product_id,
@@ -204,9 +207,7 @@ class NarwalCloudVacuum(CoordinatorEntity[NarwalCloudCoordinator], StateVacuumEn
             suction=self.coordinator.suction_power,
             humidity=self.coordinator.mop_humidity,
             cycles=self.coordinator.cleaning_cycles,
-            room_templates=self.coordinator.room_templates_for_mode(
-                self.coordinator.cleaning_mode
-            ),
+            room_templates=room_templates,
         )
         await self.coordinator.async_request_refresh()
 

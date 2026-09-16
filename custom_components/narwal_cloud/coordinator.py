@@ -17,6 +17,8 @@ from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
 from .protocol import (
     NarwalCleanPlan,
     NarwalMap,
+    clean_plans_from_cache,
+    clean_plans_to_cache,
     map_from_cache,
     map_to_cache,
     merge_display_map,
@@ -25,6 +27,24 @@ from .protocol import (
 MAP_REFRESH_INTERVAL = timedelta(minutes=5)
 MAP_CACHE_VERSION = 1
 _LOGGER = logging.getLogger(__name__)
+
+
+def _plan_map_signature(map_data: NarwalMap) -> tuple:
+    """Return the map fields that make per-room templates safe to reuse."""
+    return (
+        map_data.revision,
+        tuple(
+            sorted(
+                (
+                    room.room_id,
+                    room.name,
+                    room.room_type,
+                    room.instance_index,
+                )
+                for room in map_data.rooms
+            )
+        ),
+    )
 
 
 class NarwalCloudCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -63,19 +83,37 @@ class NarwalCloudCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.cleaning_cycles = 1
 
     async def async_restore_cached_map(self) -> None:
-        """Restore the last valid map before contacting a sleeping robot."""
+        """Restore the last valid map and plans before contacting the robot."""
         cached = await self._map_store.async_load()
         if cached is None:
             return
         try:
-            map_data = map_from_cache(cached)
+            # eu.9 stored a bare map. Keep it readable, but do not invent
+            # cleaning plans that were never persisted.
+            bundled = isinstance(cached, dict) and "map" in cached
+            map_data = map_from_cache(cached["map"] if bundled else cached)
+            clean_plans = (
+                clean_plans_from_cache(cached.get("clean_plans", []))
+                if bundled
+                else ()
+            )
         except (KeyError, TypeError, ValueError):
             _LOGGER.warning("Ignoring an invalid cached Narwal map")
             return
         if not map_data.compressed_grid or map_data.width <= 0 or map_data.height <= 0:
             return
         self.map_data = map_data
+        self.clean_plans = clean_plans
         self._map_updated_at = datetime.now().astimezone()
+
+    async def _async_save_map_cache(self) -> None:
+        """Persist map and cleaning plans as one coherent cache snapshot."""
+        await self._map_store.async_save(
+            {
+                "map": map_to_cache(self.map_data),
+                "clean_plans": clean_plans_to_cache(self.clean_plans),
+            }
+        )
 
     async def _async_update_data(self) -> dict[str, Any]:
         try:
@@ -182,7 +220,13 @@ class NarwalCloudCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         # Publish a valid saved map immediately. Cleaning-plan metadata is a
         # separate optional request and must never discard a map already read.
+        previous_map = self.map_data
         self.map_data = map_data
+        if (
+            previous_map.compressed_grid
+            and _plan_map_signature(previous_map) != _plan_map_signature(map_data)
+        ):
+            self.clean_plans = ()
         self._map_updated_at = datetime.now().astimezone()
         if self.data is not None:
             self.async_set_updated_data(
@@ -192,8 +236,6 @@ class NarwalCloudCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "clean_plans": self.clean_plans,
                 }
             )
-        await self._map_store.async_save(map_to_cache(map_data))
-
         try:
             # These requests use the same MQTT client id, so they must remain
             # sequential or the broker disconnects the first session.
@@ -216,6 +258,7 @@ class NarwalCloudCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "Narwal cleaning plans are temporarily unavailable",
                 exc_info=True,
             )
+        await self._async_save_map_cache()
 
     @property
     def map_updated_at(self) -> datetime | None:
@@ -234,8 +277,27 @@ class NarwalCloudCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Refresh map rooms and official per-room cleaning templates."""
         if self._map_refresh_task is not None and not self._map_refresh_task.done():
             await self._map_refresh_task
-            return
+            if self.clean_plans:
+                return
         await self._async_refresh_map_metadata(refresh_plans=True)
+
+    async def async_require_room_templates(
+        self, mode: int, room_ids: list[int]
+    ) -> dict[int, bytes]:
+        """Return safe room templates or refuse an ambiguous Freo command."""
+        templates = self.room_templates_for_mode(mode)
+        if mode != 1:
+            return templates
+        missing = [room_id for room_id in room_ids if room_id not in templates]
+        if missing:
+            await self.async_refresh_rooms()
+            templates = self.room_templates_for_mode(mode)
+            missing = [room_id for room_id in room_ids if room_id not in templates]
+        if missing:
+            raise ValueError(
+                "Narwal room template unavailable; room cleaning was not started"
+            )
+        return templates
 
     def room_templates_for_mode(self, mode: int) -> dict[int, bytes]:
         """Return exact official room templates for a cleaning mode."""

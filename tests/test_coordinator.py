@@ -165,7 +165,149 @@ def test_successful_map_refresh_is_saved_for_next_restart() -> None:
 
         await coordinator._async_refresh_map_metadata(refresh_plans=False)
 
-        assert PROTOCOL.map_from_cache(coordinator._map_store.saved) == expected_map
+        assert (
+            PROTOCOL.map_from_cache(coordinator._map_store.saved["map"])
+            == expected_map
+        )
+
+    asyncio.run(run())
+
+
+def test_cached_map_restores_clean_plans_after_restart() -> None:
+    async def run() -> None:
+        expected_map = PROTOCOL.NarwalMap(
+            revision=42,
+            resolution=50,
+            width=2,
+            height=2,
+            rooms=(PROTOCOL.NarwalRoom(4, "Kitchen", 4, 1),),
+            compressed_grid=b"grid",
+        )
+        expected_plans = (
+            PROTOCOL.NarwalCleanPlan(
+                plan_id=1,
+                mode=1,
+                room_templates={4: b"\x08\x04"},
+            ),
+        )
+
+        class Client:
+            async def async_get_map(self, _device_id, _product_id):
+                return expected_map
+
+            async def async_get_clean_plans(self, _device_id, _product_id):
+                return expected_plans
+
+        class Store:
+            saved = None
+
+            async def async_load(self):
+                return self.saved
+
+            async def async_save(self, value):
+                self.saved = value
+
+        store = Store()
+        writer = COORDINATOR.NarwalCloudCoordinator(
+            object(), Client(), "device", "product", timedelta(seconds=1)
+        )
+        writer._map_store = store
+        await writer._async_refresh_map_metadata(refresh_plans=True)
+
+        reader = COORDINATOR.NarwalCloudCoordinator(
+            object(), object(), "device", "product", timedelta(seconds=1)
+        )
+        reader._map_store = store
+        await reader.async_restore_cached_map()
+
+        assert reader.map_data == expected_map
+        assert reader.clean_plans == expected_plans
+        assert reader.room_templates_for_mode(1) == {4: b"\x08\x04"}
+
+    asyncio.run(run())
+
+
+def test_room_change_invalidates_stale_clean_plans() -> None:
+    async def run() -> None:
+        old_map = PROTOCOL.NarwalMap(
+            revision=42,
+            resolution=50,
+            width=2,
+            height=2,
+            rooms=(PROTOCOL.NarwalRoom(4, "Kitchen", 4, 1),),
+            compressed_grid=b"old-grid",
+        )
+        new_map = PROTOCOL.NarwalMap(
+            revision=43,
+            resolution=50,
+            width=2,
+            height=2,
+            rooms=(
+                PROTOCOL.NarwalRoom(4, "Kitchen", 4, 1),
+                PROTOCOL.NarwalRoom(6, "Bedroom", 2, 1),
+            ),
+            compressed_grid=b"new-grid",
+        )
+        stale_plans = (
+            PROTOCOL.NarwalCleanPlan(
+                plan_id=1,
+                mode=1,
+                room_templates={4: b"\x08\x04"},
+            ),
+        )
+
+        class Client:
+            async def async_get_map(self, _device_id, _product_id):
+                return new_map
+
+            async def async_get_clean_plans(self, _device_id, _product_id):
+                raise API.NarwalCloudError("plans unavailable")
+
+        class Store:
+            saved = None
+
+            async def async_save(self, value):
+                self.saved = value
+
+        coordinator = COORDINATOR.NarwalCloudCoordinator(
+            object(), Client(), "device", "product", timedelta(seconds=1)
+        )
+        coordinator.map_data = old_map
+        coordinator.clean_plans = stale_plans
+        coordinator._map_store = Store()
+
+        await coordinator._async_refresh_map_metadata(refresh_plans=True)
+
+        assert coordinator.map_data == new_map
+        assert coordinator.clean_plans == ()
+        assert coordinator._map_store.saved["clean_plans"] == []
+
+    asyncio.run(run())
+
+
+def test_missing_freo_template_refuses_room_cleaning() -> None:
+    async def run() -> None:
+        class Client:
+            async def async_get_map(self, _device_id, _product_id):
+                raise API.NarwalCloudError("map unavailable")
+
+        coordinator = COORDINATOR.NarwalCloudCoordinator(
+            object(), Client(), "device", "product", timedelta(seconds=1)
+        )
+        coordinator.map_data = PROTOCOL.NarwalMap(
+            revision=42,
+            width=2,
+            height=2,
+            rooms=(PROTOCOL.NarwalRoom(4, "Kitchen", 4, 1),),
+            compressed_grid=b"grid",
+        )
+
+        try:
+            await coordinator.async_require_room_templates(1, [4])
+        except ValueError as err:
+            assert "template" in str(err).lower()
+        else:
+            raise AssertionError("Freo room cleaning was not refused")
 
     asyncio.run(run())
 
@@ -215,5 +357,8 @@ if __name__ == "__main__":
     test_valid_map_survives_clean_plan_failure()
     test_cached_map_restores_before_sleeping_robot_answers()
     test_successful_map_refresh_is_saved_for_next_restart()
+    test_cached_map_restores_clean_plans_after_restart()
+    test_room_change_invalidates_stale_clean_plans()
+    test_missing_freo_template_refuses_room_cleaning()
     test_live_display_map_is_merged_into_cached_saved_map()
     print("coordinator tests passed")

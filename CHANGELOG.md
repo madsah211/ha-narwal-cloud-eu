@@ -1,5 +1,16 @@
 # 변경 기록 / Changelog
 
+## 0.9.3-eu.10
+
+### English
+
+- Stores official per-room cleaning templates together with the saved map so
+  safe segment cleaning survives Home Assistant restarts.
+- Invalidates cached templates whenever the map revision or room definition
+  changes, then refreshes and stores a coherent map-and-plan snapshot.
+- Refuses Freo Mind room cleaning when an official template is unavailable,
+  instead of falling back to a command that may clean the whole map.
+
 ## 0.9.3-eu.9
 
 ### English

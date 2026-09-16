@@ -364,6 +364,49 @@ def map_to_cache(map_data: NarwalMap) -> dict:
     }
 
 
+def clean_plans_to_cache(plans: tuple[NarwalCleanPlan, ...]) -> list[dict]:
+    """Serialize official cleaning plans for private local storage."""
+    return [
+        {
+            "plan_id": plan.plan_id,
+            "mode": plan.mode,
+            "room_templates": {
+                str(room_id): base64.b64encode(template).decode("ascii")
+                for room_id, template in plan.room_templates.items()
+            },
+        }
+        for plan in plans
+    ]
+
+
+def clean_plans_from_cache(value: object) -> tuple[NarwalCleanPlan, ...]:
+    """Restore and validate official per-room cleaning templates."""
+    if not isinstance(value, list):
+        raise TypeError("Invalid cached Narwal cleaning plans")
+    plans: list[NarwalCleanPlan] = []
+    for item in value:
+        if not isinstance(item, dict):
+            raise TypeError("Invalid cached Narwal cleaning plan")
+        raw_templates = item.get("room_templates", {})
+        if not isinstance(raw_templates, dict):
+            raise TypeError("Invalid cached Narwal room templates")
+        templates: dict[int, bytes] = {}
+        for raw_room_id, encoded in raw_templates.items():
+            room_id = int(raw_room_id)
+            template = base64.b64decode(str(encoded), validate=True)
+            if _integer(decode_fields(template), 1) != room_id:
+                raise ValueError("Cached Narwal room template has the wrong room ID")
+            templates[room_id] = template
+        plans.append(
+            NarwalCleanPlan(
+                plan_id=int(item.get("plan_id", 0)),
+                mode=int(item.get("mode", 0)),
+                room_templates=templates,
+            )
+        )
+    return tuple(plans)
+
+
 def map_from_cache(value: object) -> NarwalMap:
     """Restore a saved map from Home Assistant's local private storage."""
     if not isinstance(value, dict):
