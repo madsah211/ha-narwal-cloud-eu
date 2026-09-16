@@ -1,5 +1,14 @@
 # 변경 기록 / Changelog
 
+## 0.9.3-eu.2
+
+### English
+
+- Accepts the YJCC012 live `map/display_map` MQTT publication as a fallback
+  response to `map/get_map`. Some EU firmware publishes the saved map there
+  instead of answering on `map/get_map/response`, which previously left the
+  map, room list, robot position, and segment cleaning empty.
+
 ## 0.9.2
 
 ### 한국어

@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import zipfile
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 SOURCE = ROOT / "custom_components" / "narwal_cloud"
 DIST = ROOT / "dist"
-ARCHIVE = DIST / "narwal-cloud-eu-0.9.3-eu.1.zip"
+ARCHIVE = DIST / "narwal-cloud-eu-0.9.3-eu.2.zip"
 
 DIST.mkdir(exist_ok=True)
 if ARCHIVE.exists():

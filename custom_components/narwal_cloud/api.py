@@ -12,11 +12,11 @@ from typing import Any
 
 from aiohttp import ClientError, ClientSession
 
-from .const import CLIENT_APPLICATION_ID, CLIENT_APP_VERSION, CLIENT_VERSION_CODE
 from .auth import (
     NarwalCredentials,
     token_pair_from_payload,
 )
+from .const import CLIENT_APP_VERSION, CLIENT_APPLICATION_ID, CLIENT_VERSION_CODE
 from .mqtt import (
     NarwalMqttError,
     async_publish_task_command,
@@ -26,8 +26,8 @@ from .mqtt import (
 from .protocol import (
     NarwalCleanPlan,
     NarwalMap,
-    parse_clean_plans_response,
     parse_base_status_response,
+    parse_clean_plans_response,
     parse_map_response,
 )
 from .region import (
@@ -364,8 +364,9 @@ class NarwalCloudClient:
                     device_id,
                     "map/get_map",
                     b"\x08\x00\x10\x00",
+                    alternate_response_topic_suffix="map/display_map",
                 )
-        except (NarwalMqttError, TimeoutError, ValueError) as err:
+        except (NarwalMqttError, TimeoutError, ValueError):
             try:
                 # Sleeping older Freo firmware needs the official app-style
                 # activation burst before it will answer the same request.
@@ -379,6 +380,7 @@ class NarwalCloudClient:
                         "map/get_map",
                         b"\x08\x00\x10\x00",
                         activate_robot=True,
+                        alternate_response_topic_suffix="map/display_map",
                     )
             except (NarwalMqttError, TimeoutError, ValueError) as retry_err:
                 raise NarwalCloudError(

@@ -197,6 +197,18 @@ def _mqtt_publish_topic(packet_body: bytes) -> str:
     return packet_body[2 : 2 + topic_size].decode("utf-8", errors="replace")
 
 
+def _is_expected_response_topic(
+    actual_topic: str,
+    response_topic: str,
+    alternate_response_topic: str | None = None,
+) -> bool:
+    """Accept a command response or its model-specific broadcast fallback."""
+    return actual_topic == response_topic or (
+        alternate_response_topic is not None
+        and actual_topic == alternate_response_topic
+    )
+
+
 async def _async_request_once(
     broker_url: str,
     access_token: str,
@@ -207,6 +219,7 @@ async def _async_request_once(
     command_body: bytes = b"",
     *,
     response_required: bool = True,
+    alternate_response_topic_suffix: str | None = None,
 ) -> bytes:
     """Publish one request and return its matching response payload."""
     responses = await _async_request_sequence(
@@ -216,6 +229,7 @@ async def _async_request_once(
         product_id,
         device_id,
         ((topic_suffix, command_body, response_required),),
+        alternate_response_topic_suffix=alternate_response_topic_suffix,
     )
     return responses[0]
 
@@ -228,6 +242,7 @@ async def _async_request_sequence(
     device_id: str,
     requests: tuple[tuple[str, bytes, bool], ...],
     capture_topic_suffix: str | None = None,
+    alternate_response_topic_suffix: str | None = None,
 ) -> tuple[bytes, ...]:
     """Publish requests in order over one MQTT session."""
     parsed = urlparse(broker_url)
@@ -322,6 +337,11 @@ async def _async_request_sequence(
                 response_topic = (
                     f"{topic}/response" if response_required else ""
                 )
+            alternate_response_topic = (
+                f"/{product_id}/{device_id}/{alternate_response_topic_suffix}"
+                if alternate_response_topic_suffix
+                else None
+            )
             command_payload = _task_payload(
                 client_uuid, response_topic, command_body
             )
@@ -398,7 +418,11 @@ async def _async_request_sequence(
                 )
                 if (
                     packet_type == 3
-                    and _mqtt_publish_topic(response_packet) == response_topic
+                    and _is_expected_response_topic(
+                        _mqtt_publish_topic(response_packet),
+                        response_topic,
+                        alternate_response_topic,
+                    )
                 ):
                     break
             responses.append(_mqtt_publish_payload(response_packet))
@@ -455,6 +479,7 @@ async def async_request(
     *,
     activate_robot: bool = False,
     response_required: bool = True,
+    alternate_response_topic_suffix: str | None = None,
 ) -> bytes:
     """Send a request, optionally activating app-style robot publishing first."""
     if activate_robot:
@@ -474,6 +499,7 @@ async def async_request(
                 ("status/get_device_base_status", b"", True),
                 (topic_suffix, command_body, response_required),
             ),
+            alternate_response_topic_suffix=alternate_response_topic_suffix,
         )
         return responses[-1]
     return await _async_request_once(
@@ -485,6 +511,7 @@ async def async_request(
         topic_suffix,
         command_body,
         response_required=response_required,
+        alternate_response_topic_suffix=alternate_response_topic_suffix,
     )
 
 
