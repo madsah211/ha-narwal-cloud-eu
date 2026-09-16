@@ -1,26 +1,103 @@
 {
   "entity": {
-    "binary_sensor": { "turbo_mode": { "name": "Turbotilstand" } },
+    "binary_sensor": {
+      "turbo_mode": {
+        "name": "Turbotilstand"
+      }
+    },
     "camera": {
-      "map": { "name": "Kort" },
-      "map_data": { "name": "Kortdata" }
+      "map": {
+        "name": "Kort"
+      },
+      "map_data": {
+        "name": "Kortdata"
+      }
     },
     "sensor": {
-      "battery": { "name": "Batteri" },
+      "battery": {
+        "name": "Batteri"
+      },
       "movement_status": {
         "name": "Bevægelsesstatus",
         "state": {
-          "charging": "Oplader", "cleaning": "Rengør", "docked": "I dock",
-          "error": "Fejl", "idle": "Ledig", "paused": "På pause",
-          "returning": "Kører til dock", "station_work": "Arbejder i stationen"
+          "charging": "Oplader",
+          "cleaning": "Rengør",
+          "docked": "I dock",
+          "error": "Fejl",
+          "idle": "Ledig",
+          "paused": "På pause",
+          "returning": "Kører til dock",
+          "station_work": "Arbejder i stationen"
         }
       },
       "cleaning_status": {
         "name": "Rengøringsstatus",
         "state": {
-          "cleaning": "Rengør", "error": "Fejl", "paused": "På pause",
-          "returning": "Kører til dock", "station_work": "Vasker/tørrer mopper",
+          "cleaning": "Rengør",
+          "error": "Fejl",
+          "paused": "På pause",
+          "returning": "Kører til dock",
+          "station_work": "Vasker/tørrer mopper",
           "stopped": "Stoppet"
+        }
+      },
+      "filter_remaining": {
+        "name": "Filterets resterende levetid"
+      },
+      "mop_remaining": {
+        "name": "Moppernes resterende levetid"
+      },
+      "side_brush_remaining": {
+        "name": "Sidebørstens resterende levetid"
+      },
+      "sponge_remaining": {
+        "name": "Svampens resterende levetid"
+      },
+      "main_brush_remaining": {
+        "name": "Hovedbørstens resterende levetid"
+      }
+    },
+    "button": {
+      "wash_and_dry_mop": {
+        "name": "Vask og tør mopper"
+      },
+      "finish_station": {
+        "name": "Afslut moppevask/-tørring"
+      }
+    },
+    "select": {
+      "cleaning_mode": {
+        "name": "Rengøringstilstand",
+        "state": {
+          "freo_mind": "Freo Mind",
+          "vacuum": "Støvsugning",
+          "mop": "Gulvvask",
+          "vacuum_and_mop": "Støvsugning og gulvvask",
+          "vacuum_then_mop": "Støvsugning efterfulgt af gulvvask"
+        }
+      },
+      "suction_power": {
+        "name": "Sugestyrke",
+        "state": {
+          "quiet": "Stille",
+          "standard": "Standard",
+          "strong": "Kraftig"
+        }
+      },
+      "mop_humidity": {
+        "name": "Moppefugtighed",
+        "state": {
+          "slightly_dry": "Lidt tør",
+          "standard": "Standard",
+          "slightly_wet": "Lidt våd"
+        }
+      },
+      "cleaning_cycles": {
+        "name": "Antal rengøringer",
+        "state": {
+          "one_time": "1 gang",
+          "two_times": "2 gange",
+          "three_times": "3 gange"
         }
       }
     }
@@ -37,22 +114,34 @@
       "account": {
         "title": "Log ind på Narwal Cloud",
         "description": "Brug mailadressen og adgangskoden fra Narwal-appen. Oplysningerne gemmes kun i Home Assistants lokale konfiguration og skrives aldrig i integrationsloggen eller på GitHub.",
-        "data": { "email": "Mailadresse til Narwal-konto", "password": "Adgangskode til Narwal-konto" }
+        "data": {
+          "email": "Mailadresse til Narwal-konto",
+          "password": "Adgangskode til Narwal-konto"
+        }
       },
       "token": {
         "title": "Forbind med app-tokens",
         "description": "Indtast adgangs- og fornyelsestoken fra Narwal-appen. [Sådan hentes tokens]({token_guide_url})",
-        "data": { "access_token": "Narwal-adgangstoken", "refresh_token": "Narwal-fornyelsestoken" }
+        "data": {
+          "access_token": "Narwal-adgangstoken",
+          "refresh_token": "Narwal-fornyelsestoken"
+        }
       },
       "reconfigure": {
         "title": "Skift til automatisk kontologin",
         "description": "Indtast den Narwal-konto, som ejer robotten eller er inviteret til den. Det erstatter manuel tokenhåndtering.",
-        "data": { "email": "Mailadresse til Narwal-konto", "password": "Adgangskode til Narwal-konto" }
+        "data": {
+          "email": "Mailadresse til Narwal-konto",
+          "password": "Adgangskode til Narwal-konto"
+        }
       },
       "reauth_confirm": {
         "title": "Forbind Narwal Cloud igen",
         "description": "Den gemte Narwal-session kunne ikke fornyes. Indtast kontooplysningerne igen.",
-        "data": { "email": "Mailadresse til Narwal-konto", "password": "Adgangskode til Narwal-konto" }
+        "data": {
+          "email": "Mailadresse til Narwal-konto",
+          "password": "Adgangskode til Narwal-konto"
+        }
       }
     },
     "error": {
@@ -73,7 +162,9 @@
       "init": {
         "title": "Opdateringsinterval",
         "description": "Vælg hvor ofte Home Assistant henter den nyeste Narwal-status. Standard og minimum er 1 sekund. Hæv værdien for at reducere cloud- og netværkstrafik.",
-        "data": { "scan_interval": "Opdateringsinterval (sekunder)" }
+        "data": {
+          "scan_interval": "Opdateringsinterval (sekunder)"
+        }
       }
     }
   }

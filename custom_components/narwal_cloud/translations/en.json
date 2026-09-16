@@ -1,26 +1,103 @@
 {
   "entity": {
-    "binary_sensor": { "turbo_mode": { "name": "Turbo mode" } },
+    "binary_sensor": {
+      "turbo_mode": {
+        "name": "Turbo mode"
+      }
+    },
     "camera": {
-      "map": { "name": "Map" },
-      "map_data": { "name": "Map data" }
+      "map": {
+        "name": "Map"
+      },
+      "map_data": {
+        "name": "Map data"
+      }
     },
     "sensor": {
-      "battery": { "name": "Battery" },
+      "battery": {
+        "name": "Battery"
+      },
       "movement_status": {
         "name": "Movement status",
         "state": {
-          "charging": "Charging", "cleaning": "Cleaning", "docked": "Docked",
-          "error": "Error", "idle": "Idle", "paused": "Paused",
-          "returning": "Returning to dock", "station_work": "Working at station"
+          "charging": "Charging",
+          "cleaning": "Cleaning",
+          "docked": "Docked",
+          "error": "Error",
+          "idle": "Idle",
+          "paused": "Paused",
+          "returning": "Returning to dock",
+          "station_work": "Working at station"
         }
       },
       "cleaning_status": {
         "name": "Cleaning mode",
         "state": {
-          "cleaning": "Cleaning", "error": "Error", "paused": "Paused",
-          "returning": "Returning to dock", "station_work": "Mop washing/drying",
+          "cleaning": "Cleaning",
+          "error": "Error",
+          "paused": "Paused",
+          "returning": "Returning to dock",
+          "station_work": "Mop washing/drying",
           "stopped": "Stopped"
+        }
+      },
+      "filter_remaining": {
+        "name": "Filter remaining time"
+      },
+      "mop_remaining": {
+        "name": "Mop remaining time"
+      },
+      "side_brush_remaining": {
+        "name": "Side brush remaining time"
+      },
+      "sponge_remaining": {
+        "name": "Sponge remaining time"
+      },
+      "main_brush_remaining": {
+        "name": "Main brush remaining time"
+      }
+    },
+    "button": {
+      "wash_and_dry_mop": {
+        "name": "Wash and dry mops"
+      },
+      "finish_station": {
+        "name": "Finish mop washing/drying"
+      }
+    },
+    "select": {
+      "cleaning_mode": {
+        "name": "Cleaning mode",
+        "state": {
+          "freo_mind": "Freo Mind",
+          "vacuum": "Vacuum",
+          "mop": "Mop",
+          "vacuum_and_mop": "Vacuum and mop",
+          "vacuum_then_mop": "Vacuum then mop"
+        }
+      },
+      "suction_power": {
+        "name": "Suction power",
+        "state": {
+          "quiet": "Quiet",
+          "standard": "Standard",
+          "strong": "Strong"
+        }
+      },
+      "mop_humidity": {
+        "name": "Mop humidity",
+        "state": {
+          "slightly_dry": "Slightly dry",
+          "standard": "Standard",
+          "slightly_wet": "Slightly wet"
+        }
+      },
+      "cleaning_cycles": {
+        "name": "Cleaning cycles",
+        "state": {
+          "one_time": "1 time",
+          "two_times": "2 times",
+          "three_times": "3 times"
         }
       }
     }
@@ -37,22 +114,34 @@
       "account": {
         "title": "Sign in to Narwal Cloud",
         "description": "Use the email and password registered in the Narwal app. Credentials stay only in your Home Assistant config entry and are never written to integration logs or GitHub.",
-        "data": { "email": "Narwal account email", "password": "Narwal account password" }
+        "data": {
+          "email": "Narwal account email",
+          "password": "Narwal account password"
+        }
       },
       "token": {
         "title": "Connect with app tokens",
         "description": "Enter the access and refresh tokens extracted from the Narwal app. [How to obtain tokens]({token_guide_url})",
-        "data": { "access_token": "Narwal access token", "refresh_token": "Narwal refresh token" }
+        "data": {
+          "access_token": "Narwal access token",
+          "refresh_token": "Narwal refresh token"
+        }
       },
       "reconfigure": {
         "title": "Switch to automatic account login",
         "description": "Enter the Narwal account that owns or has been invited to this robot. This replaces manual token management.",
-        "data": { "email": "Narwal account email", "password": "Narwal account password" }
+        "data": {
+          "email": "Narwal account email",
+          "password": "Narwal account password"
+        }
       },
       "reauth_confirm": {
         "title": "Reconnect Narwal Cloud",
         "description": "The saved Narwal session could not be renewed. Enter the account credentials again.",
-        "data": { "email": "Narwal account email", "password": "Narwal account password" }
+        "data": {
+          "email": "Narwal account email",
+          "password": "Narwal account password"
+        }
       }
     },
     "error": {
@@ -73,7 +162,9 @@
       "init": {
         "title": "Polling interval",
         "description": "Choose how often Home Assistant requests the latest Narwal state. The default and minimum is 1 second. Increase it to reduce cloud and network traffic.",
-        "data": { "scan_interval": "Polling interval (seconds)" }
+        "data": {
+          "scan_interval": "Polling interval (seconds)"
+        }
       }
     }
   }

@@ -633,6 +633,7 @@ async def async_publish_task_command(
     humidity: int = 2,
     cycles: int = 1,
     room_templates: dict[int, bytes] | None = None,
+    response_required: bool = True,
 ) -> None:
     """Publish one captured task command using a short-lived MQTT session."""
     if action not in {
@@ -679,5 +680,5 @@ async def async_publish_task_command(
         device_id,
         topic_suffix,
         command_body,
-        response_required=action != "finish_station",
+        response_required=response_required and action != "finish_station",
     )

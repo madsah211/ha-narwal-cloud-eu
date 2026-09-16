@@ -58,8 +58,9 @@ account login. Manual token setup is documented in
 ## First-time map setup
 
 Normally, you only need to open the official Narwal app **once after installing
-the integration**. Leave the app open until its map and rooms have loaded, then
-let Home Assistant refresh Narwal Cloud EU.
+the integration**. Open the map in the app and leave it open for approximately
+**2 minutes**, even if the map appears sooner. This gives Home Assistant time to
+receive both the map and the room-cleaning templates. Then close the app again.
 
 Home Assistant saves the map and room-cleaning templates locally. They survive
 normal Home Assistant restarts, integration updates, and Home Assistant Core

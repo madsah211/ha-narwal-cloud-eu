@@ -1,14 +1,22 @@
 {
   "entity": {
     "binary_sensor": {
-      "turbo_mode": { "name": "Turbo mode" }
+      "turbo_mode": {
+        "name": "Turbo mode"
+      }
     },
     "camera": {
-      "map": { "name": "Map" },
-      "map_data": { "name": "Map data" }
+      "map": {
+        "name": "Map"
+      },
+      "map_data": {
+        "name": "Map data"
+      }
     },
     "sensor": {
-      "battery": { "name": "Battery" },
+      "battery": {
+        "name": "Battery"
+      },
       "movement_status": {
         "name": "Movement status",
         "state": {
@@ -31,6 +39,65 @@
           "returning": "Returning to dock",
           "station_work": "Mop washing/drying",
           "stopped": "Stopped"
+        }
+      },
+      "filter_remaining": {
+        "name": "Filter remaining time"
+      },
+      "mop_remaining": {
+        "name": "Mop remaining time"
+      },
+      "side_brush_remaining": {
+        "name": "Side brush remaining time"
+      },
+      "sponge_remaining": {
+        "name": "Sponge remaining time"
+      },
+      "main_brush_remaining": {
+        "name": "Main brush remaining time"
+      }
+    },
+    "button": {
+      "wash_and_dry_mop": {
+        "name": "Wash and dry mops"
+      },
+      "finish_station": {
+        "name": "Finish mop washing/drying"
+      }
+    },
+    "select": {
+      "cleaning_mode": {
+        "name": "Cleaning mode",
+        "state": {
+          "freo_mind": "Freo Mind",
+          "vacuum": "Vacuum",
+          "mop": "Mop",
+          "vacuum_and_mop": "Vacuum and mop",
+          "vacuum_then_mop": "Vacuum then mop"
+        }
+      },
+      "suction_power": {
+        "name": "Suction power",
+        "state": {
+          "quiet": "Quiet",
+          "standard": "Standard",
+          "strong": "Strong"
+        }
+      },
+      "mop_humidity": {
+        "name": "Mop humidity",
+        "state": {
+          "slightly_dry": "Slightly dry",
+          "standard": "Standard",
+          "slightly_wet": "Slightly wet"
+        }
+      },
+      "cleaning_cycles": {
+        "name": "Cleaning cycles",
+        "state": {
+          "one_time": "1 time",
+          "two_times": "2 times",
+          "three_times": "3 times"
         }
       }
     }

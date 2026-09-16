@@ -21,6 +21,26 @@ from .const import DOMAIN, NAME
 from .coordinator import NarwalCloudCoordinator
 
 
+def consumable_translation_key(item: dict[str, Any]) -> str | None:
+    """Return a stable translation key for known Narwal consumables."""
+    text = " ".join(
+        str(item.get(field, ""))
+        for field in ("consumables_code", "type", "name", "subtitle")
+    ).casefold()
+    compact = text.replace(" ", "").replace("_", "").replace("-", "")
+    if "sidebrush" in compact or "sidebørste" in compact:
+        return "side_brush_remaining"
+    if any(value in compact for value in ("mainbrush", "rollerbrush", "hovedbørste")):
+        return "main_brush_remaining"
+    if "filter" in compact:
+        return "filter_remaining"
+    if "sponge" in compact or "svamp" in compact:
+        return "sponge_remaining"
+    if "mop" in compact:
+        return "mop_remaining"
+    return None
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry[NarwalCloudCoordinator],
@@ -197,7 +217,11 @@ class NarwalConsumableSensor(
         super().__init__(coordinator)
         self._code = str(item.get("consumables_code") or item["type"])
         self._fallback_name = str(item["name"])
-        self._attr_name = self._fallback_name
+        translation_key = consumable_translation_key(item)
+        if translation_key is None:
+            self._attr_name = self._fallback_name
+        else:
+            self._attr_translation_key = translation_key
         self._attr_unique_id = (
             f"{coordinator.device_id}_consumable_{self._code}"
         )

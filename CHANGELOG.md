@@ -1,9 +1,19 @@
 # Changelog
 
+## 0.10.1
+
+- Completes Danish translations for dock buttons, cleaning selectors, selector
+  options, and the five known consumable sensors.
+- Stops waiting for MQTT acknowledgements that the verified YJCC012 firmware
+  does not send for cleaning-start and return-to-dock commands. This removes a
+  false `connection lost` error after an otherwise successful room task.
+- Clarifies first-time setup: keep the official app open on its map for about
+  two minutes so both the saved map and room templates can arrive.
+
 ## 0.10.0
 
 - Replaced the inherited Korean project documentation and translation with an
-  English-first README and a complete Danish Home Assistant translation.
+  English-first README and an initial Danish Home Assistant translation.
 - Rewrote compatibility, setup, privacy, provenance, and feature documentation
   to match the behavior actually verified on the EU YJCC012 integration.
 - Documented that fan speed affects the next task, dock presence can be reported

@@ -129,6 +129,36 @@ def test_broker_discovery_uses_denmark() -> None:
     asyncio.run(run())
 
 
+def test_task_commands_without_ack_do_not_wait_for_response() -> None:
+    async def run() -> None:
+        calls = []
+        original_publish = API.async_publish_task_command
+
+        async def publish(*args, **kwargs):
+            calls.append((args, kwargs))
+
+        try:
+            API.async_publish_task_command = publish
+            client = API.NarwalCloudClient(object(), "access", "refresh", "client")
+
+            async def broker_url() -> str:
+                return "mqtts://eu.example.invalid:8883"
+
+            client.async_get_broker_url = broker_url
+            await client.async_send_task_command(
+                "device", "product", "easy_clean_start", [4]
+            )
+            await client.async_send_task_command(
+                "device", "product", "recall"
+            )
+        finally:
+            API.async_publish_task_command = original_publish
+
+        assert [call[1]["response_required"] for call in calls] == [False, False]
+
+    asyncio.run(run())
+
+
 def test_unauthorized_request_refreshes_and_retries_on_eu() -> None:
     async def run() -> None:
         session = _Session(
@@ -156,5 +186,6 @@ if __name__ == "__main__":
     test_refresh_uses_eu_endpoint_and_rotates_tokens()
     test_device_lookup_uses_eu_endpoint()
     test_broker_discovery_uses_denmark()
+    test_task_commands_without_ack_do_not_wait_for_response()
     test_unauthorized_request_refreshes_and_retries_on_eu()
     print("EU runtime tests passed")

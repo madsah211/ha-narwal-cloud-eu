@@ -359,6 +359,7 @@ class NarwalCloudClient:
                 humidity=humidity,
                 cycles=cycles,
                 room_templates=room_templates,
+                response_required=action not in {"easy_clean_start", "recall"},
             )
         except NarwalMqttError as err:
             raise NarwalCloudError(str(err)) from err

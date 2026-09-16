@@ -23,6 +23,21 @@ SUCTION_OPTIONS = {"Quiet": 1, "Standard": 2, "Strong": 3}
 HUMIDITY_OPTIONS = {"Slightly dry": 1, "Standard": 2, "Slightly wet": 3}
 CYCLE_OPTIONS = {"1 time": 1, "2 times": 2, "3 times": 3}
 
+MODE_SELECT_OPTIONS = {
+    "freo_mind": 1,
+    "vacuum": 2,
+    "mop": 3,
+    "vacuum_and_mop": 4,
+    "vacuum_then_mop": 5,
+}
+SUCTION_SELECT_OPTIONS = {"quiet": 1, "standard": 2, "strong": 3}
+HUMIDITY_SELECT_OPTIONS = {
+    "slightly_dry": 1,
+    "standard": 2,
+    "slightly_wet": 3,
+}
+CYCLE_SELECT_OPTIONS = {"one_time": 1, "two_times": 2, "three_times": 3}
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -34,16 +49,16 @@ async def async_setup_entry(
     async_add_entities(
         [
             NarwalOptionSelect(
-                coordinator, "cleaning_mode", "Cleaning mode", MODE_OPTIONS
+                coordinator, "cleaning_mode", MODE_SELECT_OPTIONS
             ),
             NarwalOptionSelect(
-                coordinator, "suction_power", "Suction power", SUCTION_OPTIONS
+                coordinator, "suction_power", SUCTION_SELECT_OPTIONS
             ),
             NarwalOptionSelect(
-                coordinator, "mop_humidity", "Mop humidity", HUMIDITY_OPTIONS
+                coordinator, "mop_humidity", HUMIDITY_SELECT_OPTIONS
             ),
             NarwalOptionSelect(
-                coordinator, "cleaning_cycles", "Cleaning cycles", CYCLE_OPTIONS
+                coordinator, "cleaning_cycles", CYCLE_SELECT_OPTIONS
             ),
         ]
     )
@@ -58,13 +73,12 @@ class NarwalOptionSelect(CoordinatorEntity[NarwalCloudCoordinator], SelectEntity
         self,
         coordinator: NarwalCloudCoordinator,
         key: str,
-        name: str,
         options: dict[str, int],
     ) -> None:
         super().__init__(coordinator)
         self._key = key
         self._mapping = options
-        self._attr_name = name
+        self._attr_translation_key = key
         self._attr_options = list(options)
         self._attr_unique_id = f"{coordinator.device_id}_{key}"
 
