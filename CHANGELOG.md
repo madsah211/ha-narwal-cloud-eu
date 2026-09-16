@@ -1,5 +1,16 @@
 # 변경 기록 / Changelog
 
+## 0.9.3-eu.8
+
+### English
+
+- Sends the official app-style named broadcast-topic subscription for ten
+  minutes instead of the incomplete numeric activation payload.
+- Preserves the saved map's verified origin offsets and uses the local
+  integration's validated `pixel = position - origin` coordinate transform.
+- Restores the robot marker to the rendered map when the saved response
+  contains an in-bounds robot pose.
+
 ## 0.9.3-eu.7
 
 ### English

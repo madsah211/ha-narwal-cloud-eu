@@ -132,18 +132,25 @@ def _force_end_body() -> bytes:
     return _protobuf_message(2, b"\x01\x02")
 
 
-def _active_robot_body() -> bytes:
-    """Build the Freo activation body captured from the official app."""
-    return (
+_BROADCAST_TOPIC_SUFFIXES = (
+    "status/robot_base_status",
+    "status/working_status",
+    "upgrade/upgrade_status",
+    "status/download_status",
+    "map/display_map",
+    "status/time_line_status",
+)
+
+
+def _active_robot_body(duration: int = 600) -> bytes:
+    """Ask the robot to publish every app broadcast for ``duration`` seconds."""
+    return b"".join(
         _protobuf_message(
             1,
-            _protobuf_varint(1, 10000)
-            + _protobuf_varint(2, 10000)
-            + _protobuf_varint(3, 10000)
-            + _protobuf_varint(8, 0),
+            _protobuf_string(1, topic_suffix)
+            + _protobuf_varint(2, duration),
         )
-        + _protobuf_varint(2, 60000)
-        + _protobuf_varint(3, 0)
+        for topic_suffix in _BROADCAST_TOPIC_SUFFIXES
     )
 
 
@@ -306,13 +313,7 @@ async def _async_request_sequence(
         # activating the robot. Older Freo firmware does not answer get_map
         # unless this receiving session has advertised the live map/status
         # topics first.
-        broadcast_suffixes = (
-            "status/robot_base_status",
-            "status/working_status",
-            "upgrade/upgrade_status",
-            "status/download_status",
-            "map/display_map",
-            "status/time_line_status",
+        broadcast_suffixes = _BROADCAST_TOPIC_SUFFIXES + (
             "status/point_navi_plan_traj",
             "developer/planning_debug_info",
         )

@@ -50,6 +50,8 @@ class NarwalMap:
     rooms: tuple[NarwalRoom, ...] = ()
     compressed_grid: bytes = b""
     border: tuple[int, int, int, int] = (0, 0, 0, 0)
+    origin_x: int = 0
+    origin_y: int = 0
     origin: NarwalPose | None = None
     station: NarwalPose | None = None
     robot_pose: NarwalPose | None = None
@@ -303,6 +305,8 @@ def _parse_map_fields(map_fields: list[ProtoField]) -> NarwalMap:
         rooms=tuple(rooms),
         compressed_grid=_message(map_fields, 17),
         border=border,
+        origin_x=_signed(_integer(border_fields, 3)),
+        origin_y=_signed(_integer(border_fields, 1)),
         origin=_pose(map_fields, 7),
         station=_pose(map_fields, 8),
         robot_pose=_pose(map_fields, 24),

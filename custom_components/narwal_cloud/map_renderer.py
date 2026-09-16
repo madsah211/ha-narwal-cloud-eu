@@ -298,28 +298,11 @@ def render_map_data(map_data: NarwalMap) -> bytes:
 
 
 def _pose_pixel(map_data: NarwalMap) -> tuple[float, float] | None:
-    """Convert Narwal's live pose to this model's raw grid coordinates.
-
-    The app anchors the station at the origin-aligned pixel and applies
-    robot-vs-station deltas in the origin frame.
-    """
-    if not map_data.origin or not map_data.station or not map_data.robot_pose:
+    """Convert a Narwal pose using the map's verified overlay origin."""
+    if not map_data.robot_pose:
         return None
-    minimum_x, _, minimum_y, _ = map_data.border
-    base_x = map_data.origin.y * 10 - minimum_y
-    base_y = map_data.origin.x * 10 - minimum_x
-    resolution = map_data.resolution / 1000
-    if resolution <= 0:
-        return None
-
-    delta_x = map_data.robot_pose.x - map_data.station.x
-    delta_y = map_data.robot_pose.y - map_data.station.y
-    cosine = math.cos(-map_data.origin.angle)
-    sine = math.sin(-map_data.origin.angle)
-    local_x = delta_x * cosine - delta_y * sine
-    local_y = delta_x * sine + delta_y * cosine
-    raw_x = base_x + local_y / resolution
-    raw_y = base_y + local_x / resolution
+    raw_x = map_data.robot_pose.x - map_data.origin_x
+    raw_y = map_data.robot_pose.y - map_data.origin_y
     if not (0 <= raw_x < map_data.width and 0 <= raw_y < map_data.height):
         return None
     return raw_x, raw_y
