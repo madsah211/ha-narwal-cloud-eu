@@ -208,8 +208,36 @@ def parse_map_response(payload: bytes) -> NarwalMap:
     response = decode_fields(body)
     if _integer(response, 1) != 1:
         raise ValueError("Narwal map request was not successful")
-    map_fields = decode_fields(_message(response, 2))
+    map_fields = _find_complete_map_fields(decode_fields(_message(response, 2)))
+    if map_fields is None:
+        raise ValueError("Narwal response did not contain a complete saved map")
     return _parse_map_fields(map_fields)
+
+
+def _find_complete_map_fields(
+    fields: list[ProtoField], depth: int = 0
+) -> list[ProtoField] | None:
+    """Find the saved-map protobuf node without accepting live overlays."""
+    if (
+        _integer(fields, 1) > 0
+        and _integer(fields, 4) > 0
+        and _integer(fields, 5) > 0
+        and bool(_message(fields, 17))
+    ):
+        return fields
+    if depth >= 3:
+        return None
+    for item in fields:
+        if item.wire_type != 2:
+            continue
+        try:
+            nested = decode_fields(bytes(item.value))
+        except ValueError:
+            continue
+        match = _find_complete_map_fields(nested, depth + 1)
+        if match is not None:
+            return match
+    return None
 
 
 def protobuf_field_signature(payload: bytes) -> list[str]:
@@ -268,7 +296,7 @@ def _parse_map_fields(map_fields: list[ProtoField]) -> NarwalMap:
     )
 
     return NarwalMap(
-        revision=_integer(map_fields, 2),
+        revision=_integer(map_fields, 1),
         resolution=_integer(map_fields, 3),
         width=_integer(map_fields, 4),
         height=_integer(map_fields, 5),

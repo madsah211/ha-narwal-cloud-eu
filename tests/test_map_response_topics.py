@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import sys
+import zlib
 
 from test_auth import API
 
 MQTT = sys.modules["narwal_cloud.mqtt"]
+PROTOCOL = sys.modules["narwal_cloud.protocol"]
 
 
 def test_map_display_topic_is_not_a_full_map_response() -> None:
@@ -33,8 +35,18 @@ def test_map_request_waits_for_get_map_response() -> None:
 
         async def request(*_args, **kwargs) -> bytes:
             calls.append(kwargs)
-            # Transport marker + empty common header + successful empty map.
-            return b"\x01\x00\x08\x01\x12\x00"
+            map_message = (
+                MQTT._protobuf_varint(1, 42)
+                + MQTT._protobuf_varint(3, 50)
+                + MQTT._protobuf_varint(4, 1)
+                + MQTT._protobuf_varint(5, 1)
+                + MQTT._protobuf_message(17, zlib.compress(b"\x00"))
+            )
+            response = (
+                MQTT._protobuf_varint(1, 1)
+                + MQTT._protobuf_message(2, map_message)
+            )
+            return b"\x01\x00" + response
 
         original_request = API.async_request
         client.async_get_broker_url = broker_url
@@ -47,6 +59,29 @@ def test_map_request_waits_for_get_map_response() -> None:
         assert calls[0].get("alternate_response_topic_suffix") is None
 
     asyncio.run(run())
+
+
+def test_nested_saved_map_response_uses_field_one_as_map_id() -> None:
+    compressed_grid = zlib.compress(b"\x00\x00\x00\x00")
+    map_message = (
+        MQTT._protobuf_varint(1, 42)
+        + MQTT._protobuf_varint(3, 50)
+        + MQTT._protobuf_varint(4, 2)
+        + MQTT._protobuf_varint(5, 2)
+        + MQTT._protobuf_message(17, compressed_grid)
+    )
+    response = (
+        MQTT._protobuf_varint(1, 1)
+        + MQTT._protobuf_message(2, MQTT._protobuf_message(2, map_message))
+    )
+
+    map_data = PROTOCOL.parse_map_response(b"\x01\x00" + response)
+
+    assert map_data.revision == 42
+    assert map_data.resolution == 50
+    assert map_data.width == 2
+    assert map_data.height == 2
+    assert map_data.compressed_grid == compressed_grid
 
 
 def test_map_parse_failure_records_only_safe_metadata() -> None:
@@ -89,5 +124,6 @@ def test_map_parse_failure_records_only_safe_metadata() -> None:
 if __name__ == "__main__":
     test_map_display_topic_is_not_a_full_map_response()
     test_map_request_waits_for_get_map_response()
+    test_nested_saved_map_response_uses_field_one_as_map_id()
     test_map_parse_failure_records_only_safe_metadata()
     print("map response topic tests passed")

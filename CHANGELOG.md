@@ -1,5 +1,15 @@
 # 변경 기록 / Changelog
 
+## 0.9.3-eu.6
+
+### English
+
+- Reads the active map ID from saved-map field 1.
+- Locates a complete saved map through validated nested protobuf envelopes,
+  requiring a positive map ID, dimensions, and compressed grid.
+- Rejects empty parser results instead of reporting a false successful map
+  diagnostic.
+
 ## 0.9.3-eu.5
 
 ### English
