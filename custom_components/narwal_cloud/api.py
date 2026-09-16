@@ -28,9 +28,7 @@ from .protocol import (
     NarwalMap,
     parse_base_status_response,
     parse_clean_plans_response,
-    parse_map_display,
     parse_map_response,
-    protobuf_field_signature,
 )
 from .region import (
     API_BASE_URL,
@@ -369,7 +367,6 @@ class NarwalCloudClient:
                     device_id,
                     "map/get_map",
                     b"\x08\x00\x10\x00",
-                    alternate_response_topic_suffix="map/display_map",
                     response_metadata=diagnostic,
                 )
         except (NarwalMqttError, TimeoutError, ValueError):
@@ -386,7 +383,6 @@ class NarwalCloudClient:
                         "map/get_map",
                         b"\x08\x00\x10\x00",
                         activate_robot=True,
-                        alternate_response_topic_suffix="map/display_map",
                         response_metadata=diagnostic,
                     )
             except (NarwalMqttError, TimeoutError, ValueError) as retry_err:
@@ -401,11 +397,7 @@ class NarwalCloudClient:
                     "Unable to read the Narwal map"
                 ) from retry_err
         try:
-            if diagnostic.get("response_topic") == "map/display_map":
-                diagnostic["protobuf_fields"] = protobuf_field_signature(payload)
-                map_data = parse_map_display(payload)
-            else:
-                map_data = parse_map_response(payload)
+            map_data = parse_map_response(payload)
         except ValueError as err:
             diagnostic.update(
                 {

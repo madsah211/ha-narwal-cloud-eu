@@ -1,5 +1,16 @@
 # 변경 기록 / Changelog
 
+## 0.9.3-eu.5
+
+### English
+
+- Treats `map/display_map` as live position, trajectory, and cleaning-overlay
+  data instead of a complete saved map.
+- Keeps the MQTT request open until the actual `map/get_map/response` arrives
+  instead of closing on the first display broadcast.
+- Retains privacy-safe topic and payload-length diagnostics without storing raw
+  map payloads.
+
 ## 0.9.3-eu.4
 
 ### English
