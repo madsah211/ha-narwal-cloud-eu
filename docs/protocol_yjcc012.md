@@ -59,20 +59,26 @@ device IDs, private MQTT captures, and map geometry are intentionally excluded.
   - cleaning to idle after `task/force_end`
   - returning is exposed by `recall=true`
 
-## Pending captures and implementation
+## Current implementation status
 
-- Add a map camera and HA room segments using the decoded map.
-- Expose mode, suction, humidity, and cycle selectors.
-- Add dock wash-and-dry and finish buttons.
-- Capture a dedicated dock recall command if it differs from ending a task.
-- Separate authentication from the API client and add an interactive login
-  flow while retaining manual tokens as an advanced fallback.
+The EU edition now includes the map camera, room segments, mode and next-task
+option selectors, mop station controls, account login, automatic token renewal,
+and the dedicated dock recall command. Saved maps and official room templates
+are cached together and validated before room cleaning.
+
+Still unresolved:
+
+- live suction changes during an active task;
+- reliable physical dock detection when Narwal reports `in_station: false`;
+- reliable fresh saved-map retrieval from every idle, app-free session;
+- validation across EU countries and Narwal product families beyond the tested
+  Danish YJCC012 setup.
 
 ## Deployment policy
 
-Do not deploy intermediate builds to Home Assistant. Bundle STOP, map/room
-support, cleaning modes, and mop station actions into one tested release, then
-apply that release once.
+Only publish complete, tested archives. Never include raw captures, credentials,
+account or device identifiers, broker addresses, private map geometry, room
+names, or trajectories.
 
 ## Map and room discovery
 

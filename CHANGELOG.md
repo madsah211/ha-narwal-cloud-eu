@@ -1,8 +1,20 @@
-# 변경 기록 / Changelog
+# Changelog
+
+## 0.10.0
+
+- Replaced the inherited Korean project documentation and translation with an
+  English-first README and a complete Danish Home Assistant translation.
+- Rewrote compatibility, setup, privacy, provenance, and feature documentation
+  to match the behavior actually verified on the EU YJCC012 integration.
+- Documented that fan speed affects the next task, dock presence can be reported
+  incorrectly by Narwal, and compatibility outside the tested Danish setup is
+  not yet guaranteed.
+- Kept the original MIT copyright and upstream attribution while identifying
+  this repository as the maintained home of the EU edition.
+- Adopted normal semantic versioning; `EU` remains part of the project name
+  instead of being repeated in every future version number.
 
 ## 0.9.3-eu.10
-
-### English
 
 - Stores official per-room cleaning templates together with the saved map so
   safe segment cleaning survives Home Assistant restarts.
@@ -12,8 +24,6 @@
   instead of falling back to a command that may clean the whole map.
 
 ## 0.9.3-eu.9
-
-### English
 
 - Stores the last valid saved map in Home Assistant's private local storage so
   rooms and the rendered base map survive restarts while older Freo firmware is
@@ -25,137 +35,64 @@
 
 ## 0.9.3-eu.8
 
-### English
-
 - Sends the official app-style named broadcast-topic subscription for ten
   minutes instead of the incomplete numeric activation payload.
-- Preserves the saved map's verified origin offsets and uses the local
-  integration's validated `pixel = position - origin` coordinate transform.
-- Restores the robot marker to the rendered map when the saved response
-  contains an in-bounds robot pose.
+- Preserves the saved map's verified origin offsets and uses the validated
+  `pixel = position - origin` coordinate transform.
+- Restores the robot marker when the saved response contains an in-bounds pose.
 
 ## 0.9.3-eu.7
 
-### English
-
-- Publishes a successfully decoded saved map immediately, before requesting
-  optional cleaning-plan metadata.
-- A cleaning-plan timeout can no longer discard the map, rooms, renderer data,
-  or robot pose that were already received.
-- Uses the locally verified app-open wake sequence before sleeping-robot queries:
-  app event, broadcast activation, timed activation, app heartbeat, and base
-  status before requesting the saved map.
+- Publishes a decoded saved map before requesting optional cleaning-plan data.
+- A cleaning-plan timeout no longer discards map, room, renderer, or pose data.
+- Uses the verified app-open wake sequence before sleeping-robot queries.
 
 ## 0.9.3-eu.6
 
-### English
-
 - Reads the active map ID from saved-map field 1.
-- Locates a complete saved map through validated nested protobuf envelopes,
-  requiring a positive map ID, dimensions, and compressed grid.
-- Rejects empty parser results instead of reporting a false successful map
-  diagnostic.
+- Locates complete maps through validated nested protobuf envelopes.
+- Rejects empty parser results instead of reporting a false successful map.
 
 ## 0.9.3-eu.5
 
-### English
-
 - Treats `map/display_map` as live position, trajectory, and cleaning-overlay
-  data instead of a complete saved map.
-- Keeps the MQTT request open until the actual `map/get_map/response` arrives
-  instead of closing on the first display broadcast.
-- Retains privacy-safe topic and payload-length diagnostics without storing raw
-  map payloads.
+  data rather than a complete saved map.
+- Keeps map requests open until the actual saved-map response arrives.
+- Retains privacy-safe topic and payload-length diagnostics without raw data.
 
 ## 0.9.3-eu.4
 
-### English
-
 - Adds strict parsing for unframed complete-map protobuf messages published on
-  `map/display_map`. The fallback is accepted only when positive dimensions
-  and a compressed grid are present.
-- Retains privacy-safe protobuf field-number/wire-type diagnostics when an EU
-  firmware uses a different broadcast shape.
+  `map/display_map`.
+- Keeps only privacy-safe protobuf shape diagnostics.
 
 ## 0.9.3-eu.3
 
-### English
-
-- Adds privacy-safe map diagnostics to the rendered map camera attributes:
-  response topic type, payload byte length, observed standard topic suffixes,
-  and sanitized request or parser errors. Raw map data, account identifiers,
-  broker addresses, tokens, and device identifiers are never exposed.
+- Adds privacy-safe map diagnostics without exposing raw maps, account IDs,
+  broker addresses, tokens, or device identifiers.
 
 ## 0.9.3-eu.2
 
-### English
-
-- Accepts the YJCC012 live `map/display_map` MQTT publication as a fallback
-  response to `map/get_map`. Some EU firmware publishes the saved map there
-  instead of answering on `map/get_map/response`, which previously left the
-  map, room list, robot position, and segment cleaning empty.
+- Accepts the YJCC012 live `map/display_map` publication as a fallback response
+  when some EU firmware does not answer on `map/get_map/response`.
 
 ## 0.9.2
 
-### 한국어
-
-- 다크 테마에서 일반 로고로 대체되지 않고 자리표시자가 표시되는 HA 2026.8 동작에
-  맞춰 다크 테마용 아이콘과 로고 파일을 명시적으로 추가했습니다.
-
-### English
-
-- Added explicit dark-theme icon and logo files for HA 2026.8 installations
-  that do not fall back to the regular local brand images.
+- Added explicit dark-theme icons and logos for Home Assistant 2026.8.
 
 ## 0.9.1
 
-### 한국어
-
-- Home Assistant 2026.3 이상의 로컬 브랜드 이미지 기능을 사용해 공식 Narwal 앱
-  아이콘과 워드마크를 추가했습니다.
-- 일반 및 고해상도 화면용 이미지를 함께 제공해 통합·기기 화면에서 선명하게 표시됩니다.
-
-### English
-
-- Added the official Narwal app icon and wordmark using Home Assistant 2026.3+
-  local brand images.
-- Included standard and high-DPI variants for crisp integration and device UI.
+- Added local Narwal app icon and wordmark assets for Home Assistant 2026.3+.
 
 ## 0.9.0
 
-### 한국어
-
-- 기본 상태 갱신 주기를 30초에서 1초로 단축했습니다.
-- 통합 **구성** 메뉴에서 1~300초 범위로 폴링 주기를 변경할 수 있습니다.
-- HA 기본 옵션 흐름의 자동 다시 읽기를 사용해 토큰 자동 저장이 불필요한 재시작을
-  일으키지 않습니다.
-- 1초 폴링을 HA Core 2026.7.4에서 반복 검증했으며 429, 인증 오류 및 엔티티
-  `unavailable` 재발이 없음을 확인했습니다.
-- 지도 갱신은 5분 간격의 별도 작업으로 유지되어 빠른 상태 폴링과 겹치지 않으며,
-  지도 응답 실패가 로봇 상태 엔티티를 중단시키지 않습니다.
-- YJCC012가 대기 중 `/map/get_map` MQTT 요청에 응답하지 않는 경우 지도 엔티티는
-  정상 상태를 유지하지만 실제 지도 내용은 비어 있을 수 있습니다. 공식 앱의 저장 지도는
-  정상임을 확인했으며, 이는 1초 폴링과 무관한 기존 펌웨어/세션 제한입니다.
-
-### English
-
-- Reduced the default state polling interval from 30 seconds to 1 second.
-- Added a 1–300 second polling option under the integration's **Configure** menu.
-- Uses Home Assistant's native options-flow reload support, avoiding reloads
-  when rotated tokens are persisted.
-- Repeatedly tested one-second polling on HA Core 2026.7.4 without HTTP 429,
-  authentication errors, or entities becoming unavailable.
-- Map refresh remains an isolated five-minute task so map failures cannot stop
-  the primary robot-state entities.
-- Known limitation: some idle YJCC012 sessions do not answer `/map/get_map`.
-  In that case the camera entity stays available but its map payload is empty;
-  this is independent of the one-second state polling change.
+- Reduced default state polling from 30 seconds to 1 second.
+- Added a configurable 1–300 second polling interval.
+- Isolated the slower map refresh from primary state polling.
+- Documented that some idle YJCC012 sessions do not answer fresh map requests.
 
 ## 0.8.0
 
-- 나르왈 계정 로그인, 자동 토큰 재발급, 한국어/영어 구성 흐름을 추가했습니다.
-- Added Narwal account login, automatic token recovery, and Korean/English flows.
-- 앱의 공식 방별 템플릿을 사용하도록 구역 청소를 수정했습니다.
-- Fixed segment cleaning to use the app's official per-room templates.
-- 시간대 계산 오류로 약 1분 뒤 모든 엔티티가 unavailable이 되던 문제를 수정했습니다.
-- Fixed the timezone arithmetic crash that made all entities unavailable.
+- Added Narwal account login and automatic token recovery.
+- Changed segment cleaning to use the app's official per-room templates.
+- Fixed timezone arithmetic that could make all entities unavailable.

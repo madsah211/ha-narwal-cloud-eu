@@ -1,27 +1,45 @@
-# 앱 기능 조사 / App feature survey
+# App feature survey
 
-Narwal Freo YJCC012와 공식 Android 앱 2.7.03에서 확인한 항목입니다.
+This document separates implemented behavior from options merely observed in
+the official Narwal app. The current live-validation target is a Freo YJCC012
+using the European cloud and a Danish account.
 
-## 현재 통합됨 / Integrated
+## Implemented and verified
 
-- 배터리, 이동 상태, 청소 상태, 터보 상태
-- 시작, 일시정지, 재개, 중지, 충전대 복귀
-- Freo Mind, 진공, 물걸레, 진공+물걸레, 진공 후 물걸레
-- 흡입력(HA vacuum fan speed 포함), 물걸레 습도, 청소 횟수
-- 방/구역 청소, 실시간 지도, 로봇 및 충전기 위치
-- 물걸레 세척·건조 시작/종료와 소모품 수명
+- Battery, movement, cleaning, fault, and turbo state
+- Start, pause, resume, stop, and return to dock
+- Freo Mind, vacuum, mop, vacuum-and-mop, and vacuum-then-mop tasks
+- Suction, mop humidity, and cycle selection for the next cleaning task
+- Saved map, room list, robot position, live trajectory, and cleaning overlay
+- Room/segment cleaning using official per-room plans
+- Persistent map and plan cache with stale-plan invalidation
+- Fail-closed room cleaning when a matching official template is unavailable
+- Mop washing/drying start and finish controls
+- Consumable remaining-time sensors
 
-## 앱에서 확인했으나 명령 검증 필요 / Discovered, command capture required
+## Known gaps in implemented controls
 
-- 집중 모서리 청소 주기: 매번, 매일, 7일마다
-- Freo Mind 청소 전략
-- 방해 금지 시간
-- 계단 없는 환경 모드, 고지대 모드, 차일드락
-- 물걸레 건조 강도, 세제 자동 투입
-- 예약 작업, 최대 4개 지도, 지도 편집
+- Changing fan speed during an active task does not currently change live
+  suction; the value is used for the next task.
+- Narwal's `in_station` field is unreliable on the verified firmware, so a robot
+  physically at the dock can appear as `idle` instead of `docked`.
+- Fresh app-free saved-map retrieval is not reliable on every YJCC012 session;
+  the integration preserves the last valid map and matching room plans locally.
 
-이 항목들은 공식 앱 UI에는 존재하지만 공개 API가 없습니다. 실제 요청/응답을
-검증하기 전에는 기기 설정을 손상시킬 수 있는 추측 명령을 보내지 않습니다.
+## Seen in the app but not implemented
 
-These options exist in the official app but have no public API. They will only
-be added after their requests and responses are captured and verified.
+These options exist in the official app, but their commands and responses have
+not been safely verified:
+
+- intensive edge-cleaning schedule;
+- Freo Mind strategy settings;
+- do-not-disturb schedule;
+- child lock and environment modes;
+- mop-drying intensity and automatic detergent dosing;
+- scheduled jobs;
+- multiple-map management and map editing;
+- live suction adjustment during an active task.
+
+No guessed command should be sent for these features. They should be added only
+after request and response behavior has been captured, redacted, and verified
+on supported hardware.

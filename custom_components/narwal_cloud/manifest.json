@@ -6,5 +6,5 @@
   "documentation": "https://github.com/madsah211/ha-narwal-cloud-eu",
   "iot_class": "cloud_polling",
   "requirements": [],
-  "version": "0.9.3-eu.10"
+  "version": "0.10.0"
 }
