@@ -55,21 +55,24 @@ Existing token-based entries can use **Reconfigure** to switch to automatic
 account login. Manual token setup is documented in
 [`docs/token_setup.md`](docs/token_setup.md).
 
-## First map and room setup
+## First-time map setup
 
-Some YJCC012 sessions do not return a fresh saved map while the robot and the
-official app are idle. If rooms or room templates are missing after setup:
+Normally, you only need to open the official Narwal app **once after installing
+the integration**. Leave the app open until its map and rooms have loaded, then
+let Home Assistant refresh Narwal Cloud EU.
 
-1. Open the official Narwal app.
-2. Leave it open long enough for the map and cleaning plans to load.
-3. Let Home Assistant refresh the integration.
-4. Close the app again.
+Home Assistant saves the map and room-cleaning templates locally. They survive
+normal Home Assistant restarts, integration updates, and Home Assistant Core
+updates, so you do not need to open the Narwal app each time.
 
-Once received, the integration stores the last valid map and matching official
-room templates in Home Assistant's private local storage. A later Home Assistant
-restart can then restore them without opening the app. If the map revision or
-room layout changes, stale templates are invalidated and room cleaning is blocked
-until a matching set has been fetched.
+Open the app again only if:
+
+- you change the map or room layout in the Narwal app;
+- the integration is removed and installed again;
+- Home Assistant reports that a room template is missing.
+
+Until a valid room template is available, room cleaning is safely blocked rather
+than risking a whole-home cleaning task.
 
 ## Important behavior and known limitations
 
