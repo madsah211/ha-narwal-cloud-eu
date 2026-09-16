@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import sys
+import zlib
 
 from test_auth import API
 
 MQTT = sys.modules["narwal_cloud.mqtt"]
+PROTOCOL = sys.modules["narwal_cloud.protocol"]
 
 
 def test_map_display_topic_is_accepted_as_alternate_response() -> None:
@@ -19,6 +21,24 @@ def test_map_display_topic_is_accepted_as_alternate_response() -> None:
     assert not MQTT._is_expected_response_topic(
         "/product/device/status/working_status", expected, alternate
     )
+
+
+def test_direct_display_map_payload_is_parsed_without_transport_wrapper() -> None:
+    payload = (
+        MQTT._protobuf_varint(2, 7)
+        + MQTT._protobuf_varint(3, 50)
+        + MQTT._protobuf_varint(4, 2)
+        + MQTT._protobuf_varint(5, 2)
+        + MQTT._protobuf_message(17, zlib.compress(b"\x00\x00\x00\x00"))
+    )
+
+    map_data = PROTOCOL.parse_map_display(payload)
+
+    assert map_data.revision == 7
+    assert map_data.resolution == 50
+    assert map_data.width == 2
+    assert map_data.height == 2
+    assert map_data.compressed_grid
 
 
 def test_map_request_enables_display_map_fallback() -> None:
@@ -57,9 +77,9 @@ def test_map_parse_failure_records_only_safe_metadata() -> None:
 
         async def request(*_args, **kwargs) -> bytes:
             kwargs["response_metadata"].update(
-                {"response_topic": "map/display_map", "payload_length": 9}
+                {"response_topic": "map/display_map", "payload_length": 2}
             )
-            return b"not-a-map"
+            return b"\x08\x01"
 
         original_request = API.async_request
         client.async_get_broker_url = broker_url
@@ -77,9 +97,10 @@ def test_map_parse_failure_records_only_safe_metadata() -> None:
         assert client.last_map_diagnostic == {
             "status": "error",
             "response_topic": "map/display_map",
-            "payload_length": 9,
+            "payload_length": 2,
+            "protobuf_fields": ["1:0"],
             "error_type": "ValueError",
-            "error": "Invalid Narwal transport marker",
+            "error": "Unsupported display-map protobuf shape",
         }
 
     asyncio.run(run())
@@ -87,6 +108,7 @@ def test_map_parse_failure_records_only_safe_metadata() -> None:
 
 if __name__ == "__main__":
     test_map_display_topic_is_accepted_as_alternate_response()
+    test_direct_display_map_payload_is_parsed_without_transport_wrapper()
     test_map_request_enables_display_map_fallback()
     test_map_parse_failure_records_only_safe_metadata()
     print("map response topic tests passed")

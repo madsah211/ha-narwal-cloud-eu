@@ -28,7 +28,9 @@ from .protocol import (
     NarwalMap,
     parse_base_status_response,
     parse_clean_plans_response,
+    parse_map_display,
     parse_map_response,
+    protobuf_field_signature,
 )
 from .region import (
     API_BASE_URL,
@@ -399,7 +401,11 @@ class NarwalCloudClient:
                     "Unable to read the Narwal map"
                 ) from retry_err
         try:
-            map_data = parse_map_response(payload)
+            if diagnostic.get("response_topic") == "map/display_map":
+                diagnostic["protobuf_fields"] = protobuf_field_signature(payload)
+                map_data = parse_map_display(payload)
+            else:
+                map_data = parse_map_response(payload)
         except ValueError as err:
             diagnostic.update(
                 {

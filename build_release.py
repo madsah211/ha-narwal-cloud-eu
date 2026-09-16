@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 SOURCE = ROOT / "custom_components" / "narwal_cloud"
 DIST = ROOT / "dist"
-ARCHIVE = DIST / "narwal-cloud-eu-0.9.3-eu.3.zip"
+ARCHIVE = DIST / "narwal-cloud-eu-0.9.3-eu.4.zip"
 
 DIST.mkdir(exist_ok=True)
 if ARCHIVE.exists():

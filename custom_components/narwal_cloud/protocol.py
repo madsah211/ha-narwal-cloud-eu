@@ -7,8 +7,8 @@ traffic captured from the official app.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import struct
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
@@ -209,6 +209,36 @@ def parse_map_response(payload: bytes) -> NarwalMap:
     if _integer(response, 1) != 1:
         raise ValueError("Narwal map request was not successful")
     map_fields = decode_fields(_message(response, 2))
+    return _parse_map_fields(map_fields)
+
+
+def protobuf_field_signature(payload: bytes) -> list[str]:
+    """Return field numbers and wire types without exposing protobuf values."""
+    try:
+        fields = decode_fields(payload)
+    except ValueError:
+        return []
+    return sorted({f"{item.number}:{item.wire_type}" for item in fields})
+
+
+def parse_map_display(payload: bytes) -> NarwalMap:
+    """Parse an unframed `map/display_map` broadcast as a complete map."""
+    try:
+        map_fields = decode_fields(payload)
+    except ValueError as err:
+        raise ValueError("Invalid display-map protobuf") from err
+    map_data = _parse_map_fields(map_fields)
+    if (
+        map_data.width <= 0
+        or map_data.height <= 0
+        or not map_data.compressed_grid
+    ):
+        raise ValueError("Unsupported display-map protobuf shape")
+    return map_data
+
+
+def _parse_map_fields(map_fields: list[ProtoField]) -> NarwalMap:
+    """Decode the verified fields shared by response and broadcast maps."""
 
     rooms: list[NarwalRoom] = []
     duplicate_names: dict[str, int] = {}

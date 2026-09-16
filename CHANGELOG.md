@@ -1,5 +1,15 @@
 # 변경 기록 / Changelog
 
+## 0.9.3-eu.4
+
+### English
+
+- Adds strict parsing for unframed complete-map protobuf messages published on
+  `map/display_map`. The fallback is accepted only when positive dimensions
+  and a compressed grid are present.
+- Retains privacy-safe protobuf field-number/wire-type diagnostics when an EU
+  firmware uses a different broadcast shape.
+
 ## 0.9.3-eu.3
 
 ### English
