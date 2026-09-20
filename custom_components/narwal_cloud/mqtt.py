@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import ssl
 import uuid
 from typing import Any
@@ -10,6 +11,8 @@ from urllib.parse import urlparse
 
 from .const import Z10_PRODUCT_IDS
 from .protocol import decode_fields, unwrap_transport
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class NarwalMqttError(Exception):
@@ -775,6 +778,17 @@ async def async_publish_task_command(
     else:
         topic_suffix = f"task/{action}"
         command_body = b""
+    wait_for_response = response_required and action != "finish_station"
+    _LOGGER.debug(
+        "Narwal task route product_id=%s action=%s mode=%s map_id=%s "
+        "topic=%s response_required=%s",
+        product_id,
+        action,
+        mode,
+        map_id,
+        topic_suffix,
+        wait_for_response,
+    )
     response = await async_request(
         broker_url,
         access_token,
@@ -783,7 +797,7 @@ async def async_publish_task_command(
         device_id,
         topic_suffix,
         command_body,
-        response_required=response_required and action != "finish_station",
+        response_required=wait_for_response,
     )
     if (
         action == "easy_clean_start"
@@ -791,3 +805,9 @@ async def async_publish_task_command(
         and response_required
     ):
         _validate_command_response(response)
+    _LOGGER.debug(
+        "Narwal task completed product_id=%s action=%s topic=%s",
+        product_id,
+        action,
+        topic_suffix,
+    )

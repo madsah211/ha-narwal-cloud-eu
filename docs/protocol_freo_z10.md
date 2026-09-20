@@ -1,6 +1,6 @@
 # Freo Z10 beta protocol
 
-Version `0.11.0-beta.1` adds a deliberately isolated command profile for the
+Version `0.11.0-beta.2` adds a deliberately isolated command profile for the
 Freo Z10 product key `OlkUn3oUCu`.
 
 ## Start behavior

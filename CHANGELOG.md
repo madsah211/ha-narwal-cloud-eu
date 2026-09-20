@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.11.0-beta.2
+
+- Adds privacy-safe debug logging for task routing: product/model ID, action,
+  cleaning mode, cached map revision, selected MQTT topic, response behavior,
+  and command completion.
+- Never logs the device ID, broker address, access token, client UUID, map
+  payload, or room-template payload.
+- Keeps the beta.1 command behavior unchanged while diagnosing the reported
+  Z10 model-ID mismatch and return-to-dock regression.
+
 ## 0.11.0-beta.1
 
 - Adds a model-specific `clean/start_clean` command for Freo Z10 product ID

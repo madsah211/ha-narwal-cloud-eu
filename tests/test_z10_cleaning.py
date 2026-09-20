@@ -117,6 +117,76 @@ def test_z10_uses_start_clean_while_yjcc012_keeps_easy_clean() -> None:
     asyncio.run(run())
 
 
+def test_task_diagnostics_show_route_without_device_identity() -> None:
+    async def run() -> None:
+        calls = []
+        transport_calls = []
+
+        class RecordingLogger:
+            def debug(self, message, *args) -> None:
+                calls.append(message % args)
+
+        async def request(*args, **kwargs):
+            transport_calls.append((args, kwargs))
+            return b""
+
+        original_logger = MQTT._LOGGER
+        original_request = MQTT.async_request
+        MQTT._LOGGER = RecordingLogger()
+        MQTT.async_request = request
+        try:
+            await MQTT.async_publish_task_command(
+                "mqtts://private-broker.example.invalid:8883",
+                "private-access-token",
+                "private-client-id",
+                "unexpected-z10-product",
+                "private-device-id",
+                "easy_clean_start",
+                [10],
+                map_id=42,
+                mode=2,
+                room_templates={10: b"private-template-marker"},
+                response_required=False,
+            )
+            await MQTT.async_publish_task_command(
+                "mqtts://private-broker.example.invalid:8883",
+                "private-access-token",
+                "private-client-id",
+                "unexpected-z10-product",
+                "private-device-id",
+                "recall",
+                map_id=42,
+                mode=2,
+                response_required=False,
+            )
+        finally:
+            MQTT._LOGGER = original_logger
+            MQTT.async_request = original_request
+
+        rendered = "\n".join(calls)
+        assert "product_id=unexpected-z10-product" in rendered
+        assert "action=easy_clean_start" in rendered
+        assert "mode=2" in rendered
+        assert "map_id=42" in rendered
+        assert "topic=clean/easy_clean/start" in rendered
+        assert "topic=supply/recall" in rendered
+        assert "response_required=False" in rendered
+        assert "Narwal task completed" in rendered
+        assert transport_calls[1][0][5] == "supply/recall"
+        assert transport_calls[1][0][6] == b""
+        assert transport_calls[1][1]["response_required"] is False
+        for private_value in (
+            "private-device-id",
+            "private-access-token",
+            "private-client-id",
+            "private-broker",
+            "private-template-marker",
+        ):
+            assert private_value not in rendered
+
+    asyncio.run(run())
+
+
 def test_z10_start_clean_requires_current_map_id() -> None:
     try:
         MQTT._start_clean_body([1], map_id=0, mode=2)
@@ -285,6 +355,7 @@ if __name__ == "__main__":
     test_yjcc012_easy_clean_payload_remains_byte_identical()
     test_z10_start_clean_payload_carries_map_rooms_and_settings()
     test_z10_uses_start_clean_while_yjcc012_keeps_easy_clean()
+    test_task_diagnostics_show_route_without_device_identity()
     test_z10_start_clean_requires_current_map_id()
     test_z10_start_clean_rejects_negative_acknowledgement()
     test_z10_mode_one_refuses_incomplete_templates_before_publish()
