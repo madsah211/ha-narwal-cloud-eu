@@ -25,6 +25,11 @@ Other EU countries and robot models may work, but they have not been verified.
 Please do not describe the integration as universally compatible with every EU
 Narwal account yet.
 
+The `v0.11.0-beta.1` prerelease adds a Freo Z10 (`OlkUn3oUCu`) command profile
+for targeted runtime testing. It is not yet listed as verified compatibility;
+see [`docs/protocol_freo_z10.md`](docs/protocol_freo_z10.md) for its safety
+boundaries and rollback path.
+
 ## Features
 
 - Narwal account login with automatic access/refresh-token renewal

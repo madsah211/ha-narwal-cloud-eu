@@ -285,6 +285,185 @@ def test_room_change_invalidates_stale_clean_plans() -> None:
     asyncio.run(run())
 
 
+def test_room_change_reseeds_until_freo_plan_covers_new_rooms() -> None:
+    async def run() -> None:
+        old_map = PROTOCOL.NarwalMap(
+            revision=42,
+            width=2,
+            height=2,
+            rooms=(PROTOCOL.NarwalRoom(1, "Living room", 3, 1),),
+            compressed_grid=b"old-grid",
+        )
+        new_map = PROTOCOL.NarwalMap(
+            revision=43,
+            width=2,
+            height=2,
+            rooms=(
+                PROTOCOL.NarwalRoom(1, "Kitchen", 4, 1),
+                PROTOCOL.NarwalRoom(10, "Living room", 3, 1),
+            ),
+            compressed_grid=b"new-grid",
+        )
+        incomplete = (
+            PROTOCOL.NarwalCleanPlan(1, 1, {1: b"\x08\x01"}),
+        )
+        complete = (
+            PROTOCOL.NarwalCleanPlan(
+                1,
+                1,
+                {1: b"\x08\x01", 10: b"\x08\x0a"},
+            ),
+        )
+
+        class Client:
+            plan_calls = 0
+
+            async def async_get_map(self, _device_id, _product_id):
+                return new_map
+
+            async def async_get_clean_plans(self, _device_id, _product_id):
+                self.plan_calls += 1
+                return incomplete if self.plan_calls == 1 else complete
+
+        client = Client()
+        coordinator = COORDINATOR.NarwalCloudCoordinator(
+            object(), client, "device", "OlkUn3oUCu", timedelta(seconds=1)
+        )
+        coordinator.map_data = old_map
+
+        await coordinator._async_refresh_map_metadata(refresh_plans=True)
+
+        assert client.plan_calls == 2
+        assert coordinator.map_data == new_map
+        assert coordinator.clean_plans == complete
+        assert coordinator.room_templates_for_mode(1) == complete[0].room_templates
+
+    asyncio.run(run())
+
+
+def test_z10_rejects_partial_cached_plans() -> None:
+    async def run() -> None:
+        map_data = PROTOCOL.NarwalMap(
+            revision=43,
+            width=2,
+            height=2,
+            rooms=(
+                PROTOCOL.NarwalRoom(1, "Kitchen", 4, 1),
+                PROTOCOL.NarwalRoom(10, "Living room", 3, 1),
+            ),
+            compressed_grid=b"grid",
+        )
+        partial = (PROTOCOL.NarwalCleanPlan(1, 1, {1: b"\x08\x01"}),)
+
+        class Store:
+            async def async_load(self):
+                return {
+                    "map": PROTOCOL.map_to_cache(map_data),
+                    "clean_plans": PROTOCOL.clean_plans_to_cache(partial),
+                }
+
+        coordinator = COORDINATOR.NarwalCloudCoordinator(
+            object(), object(), "device", "OlkUn3oUCu", timedelta(seconds=1)
+        )
+        coordinator._map_store = Store()
+
+        await coordinator.async_restore_cached_map()
+
+        assert coordinator.map_data == map_data
+        assert coordinator.clean_plans == ()
+
+    asyncio.run(run())
+
+
+def test_z10_partial_refresh_preserves_complete_current_generation() -> None:
+    async def run() -> None:
+        map_data = PROTOCOL.NarwalMap(
+            revision=43,
+            width=2,
+            height=2,
+            rooms=(
+                PROTOCOL.NarwalRoom(1, "Kitchen", 4, 1),
+                PROTOCOL.NarwalRoom(10, "Living room", 3, 1),
+            ),
+            compressed_grid=b"grid",
+        )
+        complete = (
+            PROTOCOL.NarwalCleanPlan(
+                1, 1, {1: b"\x08\x01", 10: b"\x08\x0a"}
+            ),
+        )
+        partial = (PROTOCOL.NarwalCleanPlan(1, 1, {1: b"\x08\x01"}),)
+
+        class Client:
+            plan_calls = 0
+
+            async def async_get_map(self, _device_id, _product_id):
+                return map_data
+
+            async def async_get_clean_plans(self, _device_id, _product_id):
+                self.plan_calls += 1
+                return partial
+
+        client = Client()
+        coordinator = COORDINATOR.NarwalCloudCoordinator(
+            object(), client, "device", "OlkUn3oUCu", timedelta(seconds=1)
+        )
+        coordinator.map_data = map_data
+        coordinator.clean_plans = complete
+
+        await coordinator._async_refresh_map_metadata(refresh_plans=True)
+
+        assert client.plan_calls == 2
+        assert coordinator.clean_plans == complete
+
+    asyncio.run(run())
+
+
+def test_yjcc012_map_change_keeps_single_plan_read() -> None:
+    async def run() -> None:
+        old_map = PROTOCOL.NarwalMap(
+            revision=42,
+            width=2,
+            height=2,
+            rooms=(PROTOCOL.NarwalRoom(1, "Living room", 3, 1),),
+            compressed_grid=b"old",
+        )
+        new_map = PROTOCOL.NarwalMap(
+            revision=43,
+            width=2,
+            height=2,
+            rooms=(
+                PROTOCOL.NarwalRoom(1, "Kitchen", 4, 1),
+                PROTOCOL.NarwalRoom(10, "Living room", 3, 1),
+            ),
+            compressed_grid=b"new",
+        )
+        partial = (PROTOCOL.NarwalCleanPlan(1, 1, {1: b"\x08\x01"}),)
+
+        class Client:
+            plan_calls = 0
+
+            async def async_get_map(self, _device_id, _product_id):
+                return new_map
+
+            async def async_get_clean_plans(self, _device_id, _product_id):
+                self.plan_calls += 1
+                return partial
+
+        client = Client()
+        coordinator = COORDINATOR.NarwalCloudCoordinator(
+            object(), client, "device", "YJCC012", timedelta(seconds=1)
+        )
+        coordinator.map_data = old_map
+
+        await coordinator._async_refresh_map_metadata(refresh_plans=True)
+
+        assert client.plan_calls == 1
+        assert coordinator.clean_plans == partial
+
+    asyncio.run(run())
+
+
 def test_missing_freo_template_refuses_room_cleaning() -> None:
     async def run() -> None:
         class Client:
@@ -359,6 +538,10 @@ if __name__ == "__main__":
     test_successful_map_refresh_is_saved_for_next_restart()
     test_cached_map_restores_clean_plans_after_restart()
     test_room_change_invalidates_stale_clean_plans()
+    test_room_change_reseeds_until_freo_plan_covers_new_rooms()
+    test_z10_rejects_partial_cached_plans()
+    test_z10_partial_refresh_preserves_complete_current_generation()
+    test_yjcc012_map_change_keeps_single_plan_read()
     test_missing_freo_template_refuses_room_cleaning()
     test_live_display_map_is_merged_into_cached_saved_map()
     print("coordinator tests passed")

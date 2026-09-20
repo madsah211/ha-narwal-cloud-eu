@@ -8,6 +8,9 @@ import uuid
 from typing import Any
 from urllib.parse import urlparse
 
+from .const import Z10_PRODUCT_IDS
+from .protocol import decode_fields, unwrap_transport
+
 
 class NarwalMqttError(Exception):
     """The Narwal broker rejected or failed a command connection."""
@@ -71,6 +74,7 @@ def _easy_clean_body(
     humidity: int = 2,
     cycles: int = 1,
     room_templates: dict[int, bytes] | None = None,
+    require_room_templates: bool = False,
 ) -> bytes:
     """Build a room plan using fields verified against all five app modes."""
     if mode not in range(1, 6):
@@ -79,6 +83,14 @@ def _easy_clean_body(
         raise ValueError("Narwal suction and humidity must be between 1 and 3")
     if cycles not in range(1, 4):
         raise ValueError("Narwal cleaning cycles must be between 1 and 3")
+    if require_room_templates and (
+        not room_ids
+        or mode != 1
+        or any(room_id not in (room_templates or {}) for room_id in room_ids)
+    ):
+        raise ValueError(
+            "Narwal room template unavailable; cleaning was not started"
+        )
 
     body = _protobuf_varint(1, mode) + _protobuf_varint(2, 1)
     for room_id in room_ids:
@@ -125,6 +137,85 @@ def _easy_clean_body(
             room += _protobuf_varint(2, 1) + _protobuf_message(7, settings)
         body += _protobuf_message(3, room)
     return body
+
+
+def _start_clean_body(
+    room_ids: list[int],
+    *,
+    map_id: int,
+    mode: int,
+    suction: int = 2,
+    humidity: int = 2,
+    cycles: int = 1,
+) -> bytes:
+    """Build the CleanTask shape used by newer Narwal firmware."""
+    if map_id <= 0:
+        raise ValueError("Narwal start_clean requires a current map ID")
+    if not room_ids:
+        raise ValueError("Narwal start_clean requires at least one room ID")
+    if mode not in range(2, 6):
+        raise ValueError("Narwal start_clean supports cleaning modes 2 through 5")
+    if suction not in range(1, 4) or humidity not in range(1, 4):
+        raise ValueError("Narwal suction and humidity must be between 1 and 3")
+    if cycles not in range(1, 4):
+        raise ValueError("Narwal cleaning cycles must be between 1 and 3")
+
+    pass_fields = {
+        2: (5,),
+        3: (6,),
+        4: (7,),
+        5: (5, 6),
+    }
+    items = b""
+    for sequence, room_id in enumerate(room_ids, start=1):
+        zone = _protobuf_varint(1, 1) + _protobuf_varint(2, room_id)
+        parameters = (
+            _protobuf_varint(1, mode)
+            + _protobuf_varint(2, suction)
+            + _protobuf_varint(3, 1)
+            + _protobuf_varint(4, humidity)
+        )
+        for field_number in pass_fields[mode]:
+            parameters += _protobuf_varint(field_number, cycles)
+        item = (
+            _protobuf_message(1, zone)
+            + _protobuf_message(2, parameters)
+            + _protobuf_varint(3, sequence)
+        )
+        items += _protobuf_message(2, item)
+    task = (
+        _protobuf_varint(1, map_id)
+        + items
+        + _protobuf_message(3, b"")
+        + _protobuf_varint(5, mode)
+    )
+    return _protobuf_message(1, task)
+
+
+def uses_start_clean(product_id: str, mode: int) -> bool:
+    """Return whether this model needs the newer CleanTask command path."""
+    return product_id in Z10_PRODUCT_IDS and mode in range(2, 6)
+
+
+def _validate_command_response(payload: bytes) -> None:
+    """Require Narwal's framed field-1 SUCCESS command result."""
+    try:
+        _header, body = unwrap_transport(payload)
+        fields = decode_fields(body)
+    except ValueError as err:
+        raise NarwalMqttError("Narwal returned a malformed command response") from err
+    results = [
+        int(field.value)
+        for field in fields
+        if field.number == 1 and field.wire_type == 0
+    ]
+    if len(results) != 1:
+        raise NarwalMqttError("Narwal returned a malformed command response")
+    result_code = results[0]
+    if result_code != 1:
+        raise NarwalMqttError(
+            f"Narwal rejected the command with result code {result_code}"
+        )
 
 
 def _force_end_body() -> bytes:
@@ -628,6 +719,7 @@ async def async_publish_task_command(
     action: str,
     room_ids: list[int] | None = None,
     *,
+    map_id: int = 0,
     mode: int = 1,
     suction: int = 2,
     humidity: int = 2,
@@ -647,7 +739,17 @@ async def async_publish_task_command(
     }:
         raise ValueError(f"Unsupported Narwal task action: {action}")
 
-    if action == "easy_clean_start":
+    if action == "easy_clean_start" and uses_start_clean(product_id, mode):
+        topic_suffix = "clean/start_clean"
+        command_body = _start_clean_body(
+            room_ids or [],
+            map_id=map_id,
+            mode=mode,
+            suction=suction,
+            humidity=humidity,
+            cycles=cycles,
+        )
+    elif action == "easy_clean_start":
         topic_suffix = "clean/easy_clean/start"
         command_body = _easy_clean_body(
             room_ids or [],
@@ -656,6 +758,7 @@ async def async_publish_task_command(
             humidity,
             cycles,
             room_templates,
+            require_room_templates=(product_id in Z10_PRODUCT_IDS and mode == 1),
         )
     elif action == "force_end":
         topic_suffix = "task/force_end"
@@ -672,7 +775,7 @@ async def async_publish_task_command(
     else:
         topic_suffix = f"task/{action}"
         command_body = b""
-    await async_request(
+    response = await async_request(
         broker_url,
         access_token,
         client_uuid,
@@ -682,3 +785,9 @@ async def async_publish_task_command(
         command_body,
         response_required=response_required and action != "finish_station",
     )
+    if (
+        action == "easy_clean_start"
+        and uses_start_clean(product_id, mode)
+        and response_required
+    ):
+        _validate_command_response(response)

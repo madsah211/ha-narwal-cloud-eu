@@ -13,7 +13,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import NarwalCloudAuthError, NarwalCloudClient, NarwalCloudError
-from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import DEFAULT_SCAN_INTERVAL, DOMAIN, Z10_PRODUCT_IDS
 from .protocol import (
     NarwalCleanPlan,
     NarwalMap,
@@ -45,6 +45,17 @@ def _plan_map_signature(map_data: NarwalMap) -> tuple:
             )
         ),
     )
+
+
+def _freo_plan_covers_map(
+    plans: tuple[NarwalCleanPlan, ...], map_data: NarwalMap
+) -> bool:
+    """Return whether Freo Mind has a template for every current room."""
+    room_ids = {room.room_id for room in map_data.rooms}
+    if not room_ids:
+        return True
+    freo_plan = next((plan for plan in plans if plan.mode == 1), None)
+    return freo_plan is not None and room_ids <= set(freo_plan.room_templates)
 
 
 class NarwalCloudCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -103,7 +114,12 @@ class NarwalCloudCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if not map_data.compressed_grid or map_data.width <= 0 or map_data.height <= 0:
             return
         self.map_data = map_data
-        self.clean_plans = clean_plans
+        self.clean_plans = (
+            clean_plans
+            if self.product_id not in Z10_PRODUCT_IDS
+            or _freo_plan_covers_map(clean_plans, map_data)
+            else ()
+        )
         self._map_updated_at = datetime.now().astimezone()
 
     async def _async_save_map_cache(self) -> None:
@@ -221,11 +237,21 @@ class NarwalCloudCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Publish a valid saved map immediately. Cleaning-plan metadata is a
         # separate optional request and must never discard a map already read.
         previous_map = self.map_data
-        self.map_data = map_data
-        if (
+        previous_plans = self.clean_plans
+        map_changed = bool(
             previous_map.compressed_grid
             and _plan_map_signature(previous_map) != _plan_map_signature(map_data)
-        ):
+        )
+        is_z10 = self.product_id in Z10_PRODUCT_IDS
+        reusable_plans = (
+            previous_plans
+            if is_z10
+            and not map_changed
+            and _freo_plan_covers_map(previous_plans, map_data)
+            else ()
+        )
+        self.map_data = map_data
+        if map_changed:
             self.clean_plans = ()
         self._map_updated_at = datetime.now().astimezone()
         if self.data is not None:
@@ -244,7 +270,17 @@ class NarwalCloudCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 clean_plans = await self.client.async_get_clean_plans(
                     self.device_id, self.product_id
                 )
-            self.clean_plans = clean_plans
+                if is_z10 and not _freo_plan_covers_map(clean_plans, map_data):
+                    # A map split can race Narwal's plan regeneration. Repeat the
+                    # full activated plan read once and never cache a partial set.
+                    clean_plans = await self.client.async_get_clean_plans(
+                        self.device_id, self.product_id
+                    )
+            self.clean_plans = (
+                clean_plans
+                if not is_z10 or _freo_plan_covers_map(clean_plans, map_data)
+                else reusable_plans
+            )
             if self.data is not None:
                 self.async_set_updated_data(
                     {
