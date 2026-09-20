@@ -118,7 +118,7 @@ def test_z10_uses_start_clean_while_yjcc012_keeps_easy_clean() -> None:
     asyncio.run(run())
 
 
-def test_reported_plain_z10_uses_start_clean() -> None:
+def test_reported_plain_z10_routes_only_manual_modes_to_start_clean() -> None:
     async def run() -> None:
         calls = []
         original_request = MQTT.async_request
@@ -129,6 +129,18 @@ def test_reported_plain_z10_uses_start_clean() -> None:
 
         try:
             MQTT.async_request = request
+            for mode in range(2, 6):
+                await MQTT.async_publish_task_command(
+                    "mqtts://eu.example.invalid:8883",
+                    "access",
+                    "client",
+                    REPORTED_Z10_PRODUCT_ID,
+                    "z10-device",
+                    "easy_clean_start",
+                    [10, 1],
+                    map_id=1,
+                    mode=mode,
+                )
             await MQTT.async_publish_task_command(
                 "mqtts://eu.example.invalid:8883",
                 "access",
@@ -136,15 +148,21 @@ def test_reported_plain_z10_uses_start_clean() -> None:
                 REPORTED_Z10_PRODUCT_ID,
                 "z10-device",
                 "easy_clean_start",
-                [10, 1],
+                [10],
                 map_id=1,
-                mode=2,
+                mode=1,
+                room_templates={10: b"\x08\x0a"},
+                response_required=False,
             )
         finally:
             MQTT.async_request = original_request
 
-        assert calls[0][0][5] == "clean/start_clean"
-        assert calls[0][1]["response_required"] is True
+        assert [call[0][5] for call in calls[:4]] == ["clean/start_clean"] * 4
+        assert all(call[1]["response_required"] is True for call in calls[:4])
+        assert calls[4][0][5] == "clean/easy_clean/start"
+        assert calls[4][1]["response_required"] is False
+        assert not MQTT.uses_start_clean(REPORTED_Z10_PRODUCT_ID, 0)
+        assert not MQTT.uses_start_clean(REPORTED_Z10_PRODUCT_ID, 6)
 
     asyncio.run(run())
 
@@ -387,7 +405,7 @@ if __name__ == "__main__":
     test_yjcc012_easy_clean_payload_remains_byte_identical()
     test_z10_start_clean_payload_carries_map_rooms_and_settings()
     test_z10_uses_start_clean_while_yjcc012_keeps_easy_clean()
-    test_reported_plain_z10_uses_start_clean()
+    test_reported_plain_z10_routes_only_manual_modes_to_start_clean()
     test_task_diagnostics_show_route_without_device_identity()
     test_z10_start_clean_requires_current_map_id()
     test_z10_start_clean_rejects_negative_acknowledgement()

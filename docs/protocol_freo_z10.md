@@ -1,7 +1,7 @@
 # Freo Z10 beta protocol
 
-Version `0.11.0-beta.2` adds a deliberately isolated command profile for the
-Freo Z10 product key `OlkUn3oUCu`.
+Version `0.11.0-beta.3` adds a deliberately isolated command profile for Freo
+Z10 product keys `OlkUn3oUCu` and `tPQJmoIbEC`.
 
 ## Start behavior
 
@@ -16,9 +16,10 @@ The integration waits for the matching response topic and requires Narwal's
 field-1 `SUCCESS` result code. Publishing alone, a malformed response, and
 explicit rejection codes are not reported as a successful start.
 
-Freo Mind (mode 1) continues to require Narwal's official room templates. It is
-blocked when any current room lacks a template; the integration never invents a
-Freo Mind template.
+Freo Mind (mode 1) is not fixed by this beta and is expected not to start on the
+reported `tPQJmoIbEC` robot. Its exact Z10 payload is not verified, so this beta
+does not guess one. Runtime testing is limited to manual modes 2–5, beginning
+with one whole-home vacuum task in mode 2.
 
 ## Map changes
 

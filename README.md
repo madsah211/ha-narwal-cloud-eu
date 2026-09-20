@@ -25,10 +25,12 @@ Other EU countries and robot models may work, but they have not been verified.
 Please do not describe the integration as universally compatible with every EU
 Narwal account yet.
 
-The `v0.11.0-beta.2` prerelease adds a Freo Z10 (`OlkUn3oUCu`) command profile
-for targeted runtime testing. It is not yet listed as verified compatibility;
-see [`docs/protocol_freo_z10.md`](docs/protocol_freo_z10.md) for its safety
-boundaries and rollback path.
+The `v0.11.0-beta.3` prerelease adds targeted runtime testing for Freo Z10
+product IDs `OlkUn3oUCu` and `tPQJmoIbEC`. Only manual cleaning modes 2–5 use
+the beta command profile; Freo Mind (mode 1) is not fixed because its exact Z10
+payload is not yet verified. The Z10 is therefore not listed as verified
+compatibility; see [`docs/protocol_freo_z10.md`](docs/protocol_freo_z10.md) for
+the safety boundaries and rollback path.
 
 ## Features
 

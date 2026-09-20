@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.0-beta.3
+
+- Recognizes the reported Freo Z10 product ID `tPQJmoIbEC` and routes manual
+  cleaning modes 2–5 through the existing model-isolated `clean/start_clean`
+  command profile.
+- Keeps Freo Mind (mode 1) unchanged and explicitly outside this beta test. Its
+  exact Z10 payload is not yet verified and is not guessed.
+- Preserves the live-tested YJCC012 command path and all recall behavior.
+
 ## 0.11.0-beta.2
 
 - Adds privacy-safe debug logging for task routing: product/model ID, action,
