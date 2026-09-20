@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.11.0-beta.3
+
+- Recognizes the reported Freo Z10 product ID `tPQJmoIbEC` and routes manual
+  cleaning modes 2–5 through the existing model-isolated `clean/start_clean`
+  command profile.
+- Keeps Freo Mind (mode 1) unchanged and explicitly outside this beta test. Its
+  exact Z10 payload is not yet verified and is not guessed.
+- Preserves the live-tested YJCC012 command path and all recall behavior.
+
+## 0.11.0-beta.2
+
+- Adds privacy-safe debug logging for task routing: product/model ID, action,
+  cleaning mode, cached map revision, selected MQTT topic, response behavior,
+  and command completion.
+- Never logs the device ID, broker address, access token, client UUID, map
+  payload, or room-template payload.
+- Keeps the beta.1 command behavior unchanged while diagnosing the reported
+  Z10 model-ID mismatch and return-to-dock regression.
+
+## 0.11.0-beta.1
+
+- Adds a model-specific `clean/start_clean` command for Freo Z10 product ID
+  `OlkUn3oUCu`, using the current map ID, room IDs, and explicit cleaning
+  parameters for manual modes 2–5.
+- Leaves the live-tested YJCC012 `clean/easy_clean/start` topic and payload
+  unchanged.
+- Waits for and validates the Z10 start result code instead of reporting success
+  immediately after publishing the command.
+- For the Z10 profile only, treats a map or room-layout change as a new
+  cleaning-plan generation, retries an incomplete Freo Mind plan once, and
+  never saves partial templates as valid.
+- This beta still needs runtime verification on a physical Freo Z10. Freo Mind
+  remains blocked safely if Narwal does not return templates for every new room.
+
 ## 0.10.1
 
 - Completes Danish translations for dock buttons, cleaning selectors, selector

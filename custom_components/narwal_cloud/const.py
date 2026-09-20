@@ -7,6 +7,10 @@ from datetime import timedelta
 DOMAIN = "narwal_cloud"
 NAME = "Narwal"
 
+# Verified plain Freo Z10 product IDs from public Narwal mappings and physical
+# EU hardware reports. Keep beta behavior limited to exact product IDs.
+Z10_PRODUCT_IDS = frozenset({"OlkUn3oUCu", "tPQJmoIbEC"})
+
 CLIENT_APPLICATION_ID = "2E3t5It3Dr"
 CLIENT_APP_VERSION = "2.7.03"
 CLIENT_VERSION_CODE = "175"

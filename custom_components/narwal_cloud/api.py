@@ -16,12 +16,17 @@ from .auth import (
     NarwalCredentials,
     token_pair_from_payload,
 )
-from .const import CLIENT_APP_VERSION, CLIENT_APPLICATION_ID, CLIENT_VERSION_CODE
+from .const import (
+    CLIENT_APP_VERSION,
+    CLIENT_APPLICATION_ID,
+    CLIENT_VERSION_CODE,
+)
 from .mqtt import (
     NarwalMqttError,
     async_publish_task_command,
     async_request,
     async_request_base_status,
+    uses_start_clean,
 )
 from .protocol import (
     NarwalCleanPlan,
@@ -337,6 +342,7 @@ class NarwalCloudClient:
         action: str,
         room_ids: list[int] | None = None,
         *,
+        map_id: int = 0,
         mode: int = 1,
         suction: int = 2,
         humidity: int = 2,
@@ -354,14 +360,21 @@ class NarwalCloudClient:
                 device_id,
                 action,
                 room_ids,
+                map_id=map_id,
                 mode=mode,
                 suction=suction,
                 humidity=humidity,
                 cycles=cycles,
                 room_templates=room_templates,
-                response_required=action not in {"easy_clean_start", "recall"},
+                response_required=(
+                    action != "recall"
+                    and not (
+                        action == "easy_clean_start"
+                        and not uses_start_clean(product_id, mode)
+                    )
+                ),
             )
-        except NarwalMqttError as err:
+        except (NarwalMqttError, ValueError) as err:
             raise NarwalCloudError(str(err)) from err
 
     async def async_get_map(

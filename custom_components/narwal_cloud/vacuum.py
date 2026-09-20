@@ -20,7 +20,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_DEVICE_NAME, DOMAIN, NAME
+from .const import CONF_DEVICE_NAME, DOMAIN, NAME, Z10_PRODUCT_IDS
 from .coordinator import NarwalCloudCoordinator
 from .select import (
     CYCLE_OPTIONS,
@@ -143,11 +143,17 @@ class NarwalCloudVacuum(CoordinatorEntity[NarwalCloudCoordinator], StateVacuumEn
             room_ids = [
                 room.room_id for room in self.coordinator.map_data.rooms
             ]
+            if (
+                self.coordinator.product_id in Z10_PRODUCT_IDS
+                and self.coordinator.cleaning_mode == 1
+            ):
+                await self.coordinator.async_require_room_templates(1, room_ids)
         await self.coordinator.client.async_send_task_command(
             self.coordinator.device_id,
             self.coordinator.product_id,
             action,
             room_ids,
+            map_id=self.coordinator.map_data.revision,
             mode=self.coordinator.cleaning_mode,
             suction=self.coordinator.suction_power,
             humidity=self.coordinator.mop_humidity,
@@ -203,6 +209,7 @@ class NarwalCloudVacuum(CoordinatorEntity[NarwalCloudCoordinator], StateVacuumEn
             self.coordinator.product_id,
             "easy_clean_start",
             room_ids,
+            map_id=self.coordinator.map_data.revision,
             mode=self.coordinator.cleaning_mode,
             suction=self.coordinator.suction_power,
             humidity=self.coordinator.mop_humidity,
