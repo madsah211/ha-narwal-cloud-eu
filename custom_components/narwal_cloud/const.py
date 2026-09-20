@@ -7,9 +7,9 @@ from datetime import timedelta
 DOMAIN = "narwal_cloud"
 NAME = "Narwal"
 
-# Public Narwal APK/product-key mappings identify the plain Freo Z10 family
-# (CX3/CX3 Pure) with this product id. Keep beta behavior allowlisted.
-Z10_PRODUCT_IDS = frozenset({"OlkUn3oUCu"})
+# Verified plain Freo Z10 product IDs from public Narwal mappings and physical
+# EU hardware reports. Keep beta behavior limited to exact product IDs.
+Z10_PRODUCT_IDS = frozenset({"OlkUn3oUCu", "tPQJmoIbEC"})
 
 CLIENT_APPLICATION_ID = "2E3t5It3Dr"
 CLIENT_APP_VERSION = "2.7.03"

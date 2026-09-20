@@ -10,6 +10,7 @@ from test_auth import API
 MQTT = sys.modules["narwal_cloud.mqtt"]
 PROTOCOL = sys.modules["narwal_cloud.protocol"]
 Z10_PRODUCT_ID = "OlkUn3oUCu"
+REPORTED_Z10_PRODUCT_ID = "tPQJmoIbEC"
 
 
 def _framed_response(body: bytes, header: bytes = b"") -> bytes:
@@ -113,6 +114,37 @@ def test_z10_uses_start_clean_while_yjcc012_keeps_easy_clean() -> None:
         assert calls[0][1]["response_required"] is True
         assert calls[1][0][5] == "clean/easy_clean/start"
         assert calls[1][1]["response_required"] is False
+
+    asyncio.run(run())
+
+
+def test_reported_plain_z10_uses_start_clean() -> None:
+    async def run() -> None:
+        calls = []
+        original_request = MQTT.async_request
+
+        async def request(*args, **kwargs):
+            calls.append((args, kwargs))
+            return _framed_response(b"\x08\x01")
+
+        try:
+            MQTT.async_request = request
+            await MQTT.async_publish_task_command(
+                "mqtts://eu.example.invalid:8883",
+                "access",
+                "client",
+                REPORTED_Z10_PRODUCT_ID,
+                "z10-device",
+                "easy_clean_start",
+                [10, 1],
+                map_id=1,
+                mode=2,
+            )
+        finally:
+            MQTT.async_request = original_request
+
+        assert calls[0][0][5] == "clean/start_clean"
+        assert calls[0][1]["response_required"] is True
 
     asyncio.run(run())
 
@@ -355,6 +387,7 @@ if __name__ == "__main__":
     test_yjcc012_easy_clean_payload_remains_byte_identical()
     test_z10_start_clean_payload_carries_map_rooms_and_settings()
     test_z10_uses_start_clean_while_yjcc012_keeps_easy_clean()
+    test_reported_plain_z10_uses_start_clean()
     test_task_diagnostics_show_route_without_device_identity()
     test_z10_start_clean_requires_current_map_id()
     test_z10_start_clean_rejects_negative_acknowledgement()
